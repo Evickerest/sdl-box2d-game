@@ -51,8 +51,8 @@ const int WIDTH = 640;
 const int HEIGHT = 480;
 struct World world;
 struct Object staticObjects[NUM_BODIES];
-int isRunning = 1;
 Uint64 lastTime;
+int isRunning = 1;
 
 // Convert SDL Pixel unit to Box 2d Meter Unit
 float pixelToMeter(const float value) {
@@ -222,20 +222,17 @@ void gameLoop() {
 	const b2BodyId playerId = staticObjects[0].bodyId; 
 
 	// Check if an arrow key is being pressed, if so, apply force in that direction
+	double speed = 5 * elapsed;
 	if (world.keys[SDL_SCANCODE_UP]) {
-		b2Vec2 force = {0, 3 * elapsed};
-		b2Body_ApplyForceToCenter(playerId, force, true); 
-	}
-	if (world.keys[SDL_SCANCODE_DOWN]) {
-		b2Vec2 force = {0, -0.9 * elapsed};
+		b2Vec2 force = {0, speed};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
 	if (world.keys[SDL_SCANCODE_LEFT]) {
-		b2Vec2 force = {-0.9 * elapsed, 0};
+		b2Vec2 force = {-speed, 0};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
 	if (world.keys[SDL_SCANCODE_RIGHT]) {
-		b2Vec2 force = {1 * elapsed, 0};
+		b2Vec2 force = {speed, 0};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
 
