@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <box2d/box2d.h>
 
-#define NUM_BODIES 5
+#define NUM_BODIES 6
 
 void initGameObjects();
 void initSDL();
@@ -19,38 +19,44 @@ void initBox2D();
 void gameLoop();
 void kill();
 
-struct World {
+
+typedef enum ObjectType {
+	STATIC,
+	DYNAMIC
+} ObjectType;
+
+typedef struct World {
+	const bool *keys;
+	b2WorldId worldId;
 	SDL_Window *window;
 	SDL_Renderer *renderer;
-	b2WorldId worldId;
-	const bool *keys;
-};
+} World;
 
-struct Color {
+typedef struct Color {
 	int r;
 	int g;
 	int b;
 	int a;
-};
+} Color;
 
-struct Object {
+typedef struct Object {
 	float x;
 	float y;
 	float w;
 	float h;
-	int isStatic;
 	SDL_FRect rect;
 	b2BodyId bodyId;
+	ObjectType type;
 	b2Polygon polygon;
-	struct Color color;
-};
+	Color color;
+} Object;
 
 const float MS_PER_SECOND = 1000.0 / 60.0;
 const float PIXELS_PER_METER = 32.0f;
 const int WIDTH = 640;
 const int HEIGHT = 480;
-struct World world;
-struct Object staticObjects[NUM_BODIES];
+World world;
+Object staticObjects[NUM_BODIES];
 Uint64 lastTime;
 int isRunning = 1;
 
@@ -64,13 +70,13 @@ float meterToPixel(const float value) {
 	return value * PIXELS_PER_METER;
 }
 
-b2Vec2 box2DToSDL(b2Vec2 vector, struct Object *object) {
+b2Vec2 box2DToSDL(b2Vec2 vector, Object *object) {
 	vector.x = meterToPixel(vector.x) - object->w / 2;
 	vector.y = HEIGHT - meterToPixel(vector.y) - object->h / 2;
 	return vector;
 }
 
-b2Vec2 SDLToBox2D(b2Vec2 vector, struct Object *object) {
+b2Vec2 SDLToBox2D(b2Vec2 vector, Object *object) {
 	vector.x = pixelToMeter(vector.x + object->w / 2); 
 	vector.y = pixelToMeter(HEIGHT - vector.y + object->h / 2);
 	return vector;
@@ -85,14 +91,14 @@ b2Vec2 SDLXYToBox2D(float x, float y) {
 }
 
 // Convert SDL x,y position to Box2D x,y position
-b2Vec2 SDLPositionToBox2D(struct Object *object) {
+b2Vec2 SDLPositionToBox2D(Object *object) {
 	float x = (object->w / 2) + object->x;
 	float y = (object->h / 2) + object->y;
 	return SDLXYToBox2D(x, y);
 }
 
 // Convert Box2D x,y position to SDL x,y position
-b2Vec2 SDLSizeToBox2D(struct Object *object) {
+b2Vec2 SDLSizeToBox2D(Object *object) {
 	float w = object->w / 2;
 	float h = object->h / 2;
 	return (b2Vec2){pixelToMeter(w), pixelToMeter(h)};
@@ -108,49 +114,57 @@ int main() {
 }
 
 void initGameObjects() {
-	struct Object square, ground, platform1, platform2, platform3;
+	Object square, ground, platform1, platform2, platform3, platform4;
 
 	// Units are in pixels
 	square.x = 100;
 	square.y = 100;
 	square.w = 50;
 	square.h = 50;
-	square.isStatic = 0;
-	square.color = (struct Color){255, 0, 0, 255};
+	square.type = DYNAMIC;
+	square.color = (Color){255, 0, 0, 255};
 
 	ground.w = WIDTH;
 	ground.h = 20;
 	ground.x = 0;
 	ground.y = HEIGHT - ground.h;
-	ground.isStatic = 1;
-	ground.color = (struct Color){0, 255, 0, 255};
+	ground.type = STATIC;
+	ground.color = (Color){0, 255, 0, 255};
 
 	platform1.w = 200;
 	platform1.h = 20;
 	platform1.x = 200;
 	platform1.y = 300;
-	platform1.isStatic = 1;
-	platform1.color = (struct Color){0, 0, 255, 255};
+	platform1.type = STATIC;
+	platform1.color = (Color){0, 255, 255, 255};
 
 	platform2.w = 100;
 	platform2.h = 20;
 	platform2.x = 20;
 	platform2.y = 400;
-	platform2.isStatic = 1;
-	platform2.color = (struct Color){0, 0, 255, 255};
+	platform2.type = STATIC;
+	platform2.color = (Color){0, 0, 255, 255};
 
 	platform3.w = 200;
 	platform3.h = 40;
 	platform3.x = 400;
 	platform3.y = 100;
-	platform3.isStatic = 1;
-	platform3.color = (struct Color){0, 0, 255, 255};
+	platform3.type = STATIC;
+	platform3.color = (Color){0, 0, 255, 255};
+
+	platform4.w = 50;
+	platform4.h = 50;
+	platform4.x = 400;
+	platform4.y = 50;
+	platform4.type = DYNAMIC;
+	platform4.color = (Color){0, 0, 255, 255};
 
 	staticObjects[0] = square;
 	staticObjects[1] = ground;
 	staticObjects[2] = platform1;
 	staticObjects[3] = platform2;
 	staticObjects[4] = platform3;
+	staticObjects[5] = platform4;
 }
 
 void initSDL() {
@@ -190,7 +204,7 @@ void initBox2D() {
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.position = SDLPositionToBox2D(&staticObjects[i]);
 
-		if (staticObjects[i].isStatic == 0) bodyDef.type = b2_dynamicBody;
+		if (staticObjects[i].type == DYNAMIC) bodyDef.type = b2_dynamicBody;
 
 		// Create Body
 		staticObjects[i].bodyId = b2CreateBody(world.worldId, &bodyDef);
@@ -237,7 +251,7 @@ void gameLoop() {
 	}
 
 	// Step physics simulation
-	b2World_Step(world.worldId, 1.0f / 60.0f, 4);
+	b2World_Step(world.worldId, 1.0f / 60.0f, 8);
 
 	// Render background
 	SDL_SetRenderDrawColor(world.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
@@ -246,10 +260,13 @@ void gameLoop() {
 	// Draw Static bodies
 	for (int i = 0; i < NUM_BODIES; i++) {
 		// Update position
-		b2Vec2 position = box2DToSDL(b2Body_GetPosition(staticObjects[i].bodyId), &staticObjects[i]);
-		staticObjects[i].rect.x = position.x;
-		staticObjects[i].rect.y = position.y;
-		struct Color color = staticObjects[i].color;
+		Color color = staticObjects[i].color;
+
+		if (staticObjects[i].type == DYNAMIC) {
+			b2Vec2 position = box2DToSDL(b2Body_GetPosition(staticObjects[i].bodyId), &staticObjects[i]);
+			staticObjects[i].rect.x = position.x;
+			staticObjects[i].rect.y = position.y;
+		}
 
 		SDL_SetRenderDrawColor(world.renderer, color.r, color.g, color.b, color.a);
 		SDL_RenderFillRect(world.renderer, &staticObjects[i].rect);
