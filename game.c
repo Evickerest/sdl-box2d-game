@@ -11,6 +11,7 @@
 #include <box2d/box2d.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "game.h" 
 #include "utils.h"
 
@@ -87,7 +88,12 @@ void initGameObjects() {
 	platform7.type = STATIC;
 	platform7.color = (Color){20, 255, 100, 255};
 
-	player.isJumping = true;
+	player.canJump = false;
+	player.maxVelocityX = 10.0f;
+	player.jumpBuffer = 0;
+	player.bufferFrames = 10;
+	player.xForce = 2.0f;
+	player.yForce = 3.0f;
 
 	staticObjects[0] = square;
 	staticObjects[1] = ground;
@@ -135,10 +141,13 @@ void initBox2D() {
 	for (int i = 0; i < NUM_BODIES; i++) {
 		// Create Body definition
 		b2BodyDef bodyDef = b2DefaultBodyDef();
+
 		b2Vec2 pos = SDLPositionToBox2D(&staticObjects[i]);
 		bodyDef.position = pos; 
 
-		if (staticObjects[i].type == DYNAMIC) bodyDef.type = b2_dynamicBody;
+		if (staticObjects[i].type == DYNAMIC){
+			bodyDef.type = b2_dynamicBody;
+		}
 
 		// Create Body
 		staticObjects[i].bodyId = b2CreateBody(world.worldId, &bodyDef);
@@ -149,20 +158,30 @@ void initBox2D() {
 		// Create Polygon Shape
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
-		shapeDef.friction = 0.1f;
+		shapeDef.friction = 0.5f;
 		shapeDef.userData = "shapeDef";
 
 		b2CreatePolygonShape(staticObjects[i].bodyId, &shapeDef, &staticObjects[i].polygon);
 
 		if (staticObjects[i].type == STATIC) {
-			// Create 4 zero mass edges around body
-			b2ShapeDef edge = b2DefaultShapeDef();
-			edge.userData = "edge";
-			edge.isSensor = true;
+			b2ShapeDef ground = b2DefaultShapeDef();
+			b2ShapeDef lwall = b2DefaultShapeDef();
+			b2ShapeDef rwall = b2DefaultShapeDef();
+
+			ground.userData = "ground";
+			lwall.userData = "wall";
+			rwall.userData = "wall";
+
+			ground.isSensor = lwall.isSensor = rwall.isSensor = true;
 
 			// That "1" in the b2Rot took me like 2 hours to figure out :(
-			b2Polygon edgePolygon = b2MakeOffsetBox(size.x, size.y * 0.1, (b2Vec2){0, size.y}, (b2Rot){1, 0});
-			b2CreatePolygonShape(staticObjects[i].bodyId, &edge, &edgePolygon);
+			b2Polygon groundPol = b2MakeOffsetBox(size.x * .95, size.y * 0.1, (b2Vec2){0, size.y * .9}, (b2Rot){1, 0});
+			b2Polygon lwallPol = b2MakeOffsetBox(size.x * 0.1, size.y * 0.95, (b2Vec2){-size.x * 0.9, 0}, (b2Rot){1, 0});
+			b2Polygon rwallPol = b2MakeOffsetBox(size.x * 0.1, size.y * 0.1, (b2Vec2){size.x + 0.9, 0}, (b2Rot){1, 0});
+
+			b2CreatePolygonShape(staticObjects[i].bodyId, &ground, &groundPol);
+			b2CreatePolygonShape(staticObjects[i].bodyId, &lwall, &lwallPol);
+			b2CreatePolygonShape(staticObjects[i].bodyId, &rwall, &rwallPol);
 		}
 	}
 }
@@ -170,40 +189,60 @@ void initBox2D() {
 bool gameLoop() {
 	const Uint64 current = SDL_GetTicks();
 	const Uint64 elapsed = current - world.lastTime;
-	SDL_Event e;
 	SDL_PumpEvents();
+	SDL_Event e;
 
 	// Poll for Events
 	while (SDL_PollEvent(&e) != 0) {
-		if (e.type == SDL_EVENT_QUIT) {
-			return false;
-		}
+		if (e.type == SDL_EVENT_QUIT) return false;
 	}
 
 	const b2BodyId playerId = staticObjects[0].bodyId; 
 
 	// Check if an arrow key is being pressed, if so, apply force in that direction
-	double speed = 5 * elapsed;
-	if (world.keys[SDL_SCANCODE_UP] && player.isJumping == false) {
-		player.isJumping = true;
-		b2Vec2 force = {0, speed * 15};
+	double speed = elapsed;
+
+	// Get player velocity
+	b2Vec2 velocity = b2Body_GetLinearVelocity(playerId);
+
+	if (world.keys[SDL_SCANCODE_UP] && (player.canJump || player.jumpBuffer > 0)) {
+		player.canJump = false;
+		if (player.jumpBuffer > 0) player.jumpBuffer--;
+
+		b2Vec2 force = {0, player.yForce * speed};
+		b2Body_ApplyForceToCenter(playerId, force, true);
+	} 
+	if (world.keys[SDL_SCANCODE_LEFT] && velocity.x >= -player.maxVelocityX) {
+		b2Vec2 force = {-player.xForce * speed, 0};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
-	if (world.keys[SDL_SCANCODE_LEFT]) {
-		b2Vec2 force = {-speed, 0};
-		b2Body_ApplyForceToCenter(playerId, force, true); 
-	}
-	if (world.keys[SDL_SCANCODE_RIGHT]) {
-		b2Vec2 force = {speed, 0};
+	if (world.keys[SDL_SCANCODE_RIGHT] && velocity.x <= player.maxVelocityX) {
+		b2Vec2 force = {player.xForce * speed, 0};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
 
 	b2SensorEvents sensorEvents = b2World_GetSensorEvents(world.worldId);
 	
+	// If we are touching the ground, set that we can jump
 	for (int i = 0; i < sensorEvents.beginCount; i++) {
 		b2SensorBeginTouchEvent* beginTouch = sensorEvents.beginEvents + i;
 		char* sensor = b2Shape_GetUserData(beginTouch->sensorShapeId);
-		player.isJumping = false;
+
+		if (strcmp(sensor, "ground") == 0) {
+			player.canJump = true;
+			player.jumpBuffer = player.bufferFrames;
+		}
+	}
+
+	// If we leave the ground, set that we can't jump
+	for (int i = 0; i < sensorEvents.endCount; i++) {
+		b2SensorEndTouchEvent* endTouch = sensorEvents.endEvents + i;
+		char* sensor = b2Shape_GetUserData(endTouch->sensorShapeId);
+
+		if (strcmp(sensor, "ground") == 0 && player.canJump) {
+			player.canJump = false;
+			player.jumpBuffer = 0;
+		}
 	}
 
 	// Step physics simulation
@@ -218,6 +257,7 @@ bool gameLoop() {
 		// Update position
 		Color color = staticObjects[i].color;
 
+		// If we object can move, get the new position
 		if (staticObjects[i].type == DYNAMIC) {
 			b2Vec2 position = box2DToSDL(b2Body_GetPosition(staticObjects[i].bodyId), &staticObjects[i]);
 			staticObjects[i].rect.x = position.x;
@@ -245,5 +285,6 @@ void kill() {
 	// Clean up SDL
 	SDL_DestroyRenderer(world.renderer);
 	SDL_DestroyWindow(world.window);
+	b2DestroyWorld(world.worldId);
 	SDL_Quit();
 }

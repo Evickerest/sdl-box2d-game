@@ -25,10 +25,10 @@ bool gameLoop(void);
 // Cleans up
 void kill(void);
 
-const static int WIDTH = 640;
-const static int HEIGHT = 480;
-const static float MS_PER_SECOND = 1000.0 / 60.0;
-const static float PIXELS_PER_METER = 32.0f;
+const static int WIDTH = 1000;
+const static int HEIGHT = 500;
+const static float MS_PER_SECOND = 16.67; 
+const static float PIXELS_PER_METER = 50.0f;
 
 typedef enum ObjectType {
 	STATIC,
@@ -63,6 +63,12 @@ typedef struct Object {
 } Object;
 
 typedef struct Player {
-	bool isJumping;
+	bool canJump;
+	bool canWallJump;
+	int bufferFrames;
+	int jumpBuffer;
+	float maxVelocityX;
+	float xForce;
+	float yForce; 
 } Player;
 
