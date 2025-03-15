@@ -14,14 +14,14 @@
 #include "game.h" 
 #include "utils.h"
 
-#define NUM_BODIES 7
+#define NUM_BODIES 9
 
 World world;
 Player player;
 Object staticObjects[NUM_BODIES];
 
 void initGameObjects() {
-	Object square, ground, platform1, platform2, platform3, platform4, platform5;
+	Object square, ground, platform1, platform2, platform3, platform4, platform5, platform6, platform7;
 
 	// Units are in pixels
 	square.x = 100;
@@ -47,7 +47,7 @@ void initGameObjects() {
 
 	platform2.w = 100;
 	platform2.h = 20;
-	platform2.x = 20;
+	platform2.x = 40;
 	platform2.y = 400;
 	platform2.type = STATIC;
 	platform2.color = (Color){0, 0, 255, 255};
@@ -73,6 +73,20 @@ void initGameObjects() {
 	platform5.type = STATIC;
 	platform5.color = (Color){125, 255, 30, 255};
 
+	platform6.w = 20;
+	platform6.h = HEIGHT;
+	platform6.x = WIDTH - platform6.w;
+	platform6.y = 0;
+	platform6.type = STATIC;
+	platform6.color = (Color){20, 255, 100, 255};
+
+	platform7.w = 20;
+	platform7.h = HEIGHT;
+	platform7.x = 0; 
+	platform7.y = 0;
+	platform7.type = STATIC;
+	platform7.color = (Color){20, 255, 100, 255};
+
 	player.isJumping = true;
 
 	staticObjects[0] = square;
@@ -82,6 +96,8 @@ void initGameObjects() {
 	staticObjects[4] = platform3;
 	staticObjects[5] = platform4;
 	staticObjects[6] = platform5;
+	staticObjects[7] = platform6;
+	staticObjects[8] = platform7;
 }
 
 void initSDL() {
@@ -144,11 +160,11 @@ void initBox2D() {
 			edge.userData = "edge";
 			edge.isSensor = true;
 
+			// That "1" in the b2Rot took me like 2 hours to figure out :(
 			b2Polygon edgePolygon = b2MakeOffsetBox(size.x, size.y * 0.1, (b2Vec2){0, size.y}, (b2Rot){1, 0});
 			b2CreatePolygonShape(staticObjects[i].bodyId, &edge, &edgePolygon);
 		}
 	}
-int isRunning = 1;
 }
 
 bool gameLoop() {
