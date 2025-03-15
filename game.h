@@ -40,6 +40,7 @@ typedef struct World {
 	b2WorldId worldId;
 	SDL_Window *window;
 	SDL_Renderer *renderer;
+	Uint64 lastTime;
 } World;
 
 typedef struct Color {
@@ -60,4 +61,8 @@ typedef struct Object {
 	b2Polygon polygon;
 	Color color;
 } Object;
+
+typedef struct Player {
+	bool isJumping;
+} Player;
 
