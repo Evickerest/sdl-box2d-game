@@ -1,3 +1,4 @@
+#pragma once
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL.h>
@@ -10,108 +11,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <box2d/box2d.h>
+#include "game.h" 
+#include "utils.h"
 
 #define NUM_BODIES 6
 
-void initGameObjects();
-void initSDL();
-void initBox2D();
-void gameLoop();
-void kill();
-
-
-typedef enum ObjectType {
-	STATIC,
-	DYNAMIC
-} ObjectType;
-
-typedef struct World {
-	const bool *keys;
-	b2WorldId worldId;
-	SDL_Window *window;
-	SDL_Renderer *renderer;
-} World;
-
-typedef struct Color {
-	int r;
-	int g;
-	int b;
-	int a;
-} Color;
-
-typedef struct Object {
-	float x;
-	float y;
-	float w;
-	float h;
-	SDL_FRect rect;
-	b2BodyId bodyId;
-	ObjectType type;
-	b2Polygon polygon;
-	Color color;
-} Object;
-
-const float MS_PER_SECOND = 1000.0 / 60.0;
-const float PIXELS_PER_METER = 32.0f;
-const int WIDTH = 640;
-const int HEIGHT = 480;
 World world;
 Object staticObjects[NUM_BODIES];
 Uint64 lastTime;
 int isRunning = 1;
-
-// Convert SDL Pixel unit to Box 2d Meter Unit
-float pixelToMeter(const float value) {
-	return value / PIXELS_PER_METER;
-}
-
-// Convert box2d meter unit to SDL pixel unit
-float meterToPixel(const float value) {
-	return value * PIXELS_PER_METER;
-}
-
-b2Vec2 box2DToSDL(b2Vec2 vector, Object *object) {
-	vector.x = meterToPixel(vector.x) - object->w / 2;
-	vector.y = HEIGHT - meterToPixel(vector.y) - object->h / 2;
-	return vector;
-}
-
-b2Vec2 SDLToBox2D(b2Vec2 vector, Object *object) {
-	vector.x = pixelToMeter(vector.x + object->w / 2); 
-	vector.y = pixelToMeter(HEIGHT - vector.y + object->h / 2);
-	return vector;
-}
-
-b2Vec2 Box2DXYToSDL(float x, float y) {
-	return (b2Vec2){meterToPixel(x), HEIGHT - meterToPixel(y)};
-}
-
-b2Vec2 SDLXYToBox2D(float x, float y) {
-	return (b2Vec2){pixelToMeter(x), pixelToMeter(HEIGHT - y)};
-}
-
-// Convert SDL x,y position to Box2D x,y position
-b2Vec2 SDLPositionToBox2D(Object *object) {
-	float x = (object->w / 2) + object->x;
-	float y = (object->h / 2) + object->y;
-	return SDLXYToBox2D(x, y);
-}
-
-// Convert Box2D x,y position to SDL x,y position
-b2Vec2 SDLSizeToBox2D(Object *object) {
-	float w = object->w / 2;
-	float h = object->h / 2;
-	return (b2Vec2){pixelToMeter(w), pixelToMeter(h)};
-}
-
-int main() {
-	initGameObjects(); // Create game objects
-	initBox2D(); // Initalize Box2D world and FRects
-	initSDL(); // Initialize SDL window
-	while (isRunning) gameLoop(); // Game loop, get inputs, update, render
-	kill(); // Clean Up resources
-	return 0;
-}
 
 void initGameObjects() {
 	Object square, ground, platform1, platform2, platform3, platform4;
@@ -220,7 +128,7 @@ void initBox2D() {
 	}
 }
 
-void gameLoop() {
+bool gameLoop() {
 	const Uint64 current = SDL_GetTicks();
 	const Uint64 elapsed = current - lastTime;
 	SDL_Event e;
@@ -229,7 +137,7 @@ void gameLoop() {
 	// Poll for Events
 	while (SDL_PollEvent(&e) != 0) {
 		if (e.type == SDL_EVENT_QUIT) {
-			isRunning = 0;
+			return false;
 		}
 	}
 
@@ -281,6 +189,8 @@ void gameLoop() {
 		SDL_Delay(MS_PER_SECOND - elapsedTime);
 	}
 	lastTime = current;
+
+	return true;
 }
 
 void kill() {
