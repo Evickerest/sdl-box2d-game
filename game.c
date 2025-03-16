@@ -252,17 +252,18 @@ bool gameLoop() {
 	SDL_SetRenderDrawColor(world.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(world.renderer);
 
+	// Get Camera Offset
+	b2Vec2 position = box2DToSDL(b2Body_GetPosition(playerId), &staticObjects[0]);
+	world.xoffset = (float)WIDTH / 2 - position.x;
+
 	// Draw Static bodies
 	for (int i = 0; i < NUM_BODIES; i++) {
 		// Update position
 		Color color = staticObjects[i].color;
 
-		// If we object can move, get the new position
-		if (staticObjects[i].type == DYNAMIC) {
-			b2Vec2 position = box2DToSDL(b2Body_GetPosition(staticObjects[i].bodyId), &staticObjects[i]);
-			staticObjects[i].rect.x = position.x;
-			staticObjects[i].rect.y = position.y;
-		}
+		b2Vec2 position = box2DToSDL(b2Body_GetPosition(staticObjects[i].bodyId), &staticObjects[i]); 
+		staticObjects[i].rect.x = position.x + world.xoffset;
+		staticObjects[i].rect.y = position.y;
 
 		SDL_SetRenderDrawColor(world.renderer, color.r, color.g, color.b, color.a);
 		SDL_RenderFillRect(world.renderer, &staticObjects[i].rect);

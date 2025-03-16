@@ -41,6 +41,7 @@ typedef struct World {
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	Uint64 lastTime;
+	float xoffset;
 } World;
 
 typedef struct Color {
