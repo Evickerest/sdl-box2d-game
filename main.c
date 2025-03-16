@@ -1,10 +1,16 @@
 #include "game.h" 
 
 int main() {
+	int levelStatus;
 	initGameObjects(); 
 	initBox2D(); 
 	initSDL(); 
-	while (gameLoop()); 
-	kill(); 
+
+	while ((levelStatus = gameLoop()) == 0); 
+	if (levelStatus == -1) {
+		kill();
+		return 0;
+	}
+
 	return 0;
 }

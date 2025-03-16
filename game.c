@@ -15,14 +15,23 @@
 #include "game.h" 
 #include "utils.h"
 
-#define NUM_BODIES 9
+#define NUM_BODIES 12
 
 World world;
 Player player;
-Object staticObjects[NUM_BODIES];
+Level level1;
+Object objects[NUM_BODIES];
 
 void initGameObjects() {
 	Object square, ground, platform1, platform2, platform3, platform4, platform5, platform6, platform7;
+	Object platform8, platform9, platform10;
+
+	level1.levelWidth = WIDTH * 3;
+	level1.levelHeight = HEIGHT;
+ 	level1.cameraLeftOffset = (float)WIDTH / 2;
+	level1.cameraRightOffset = level1.levelWidth - level1.cameraLeftOffset;
+	level1.cameraBottomOffset = (float)HEIGHT / 2;
+	level1.cameraTopOffset = level1.levelHeight - level1.cameraBottomOffset;
 
 	// Units are in pixels
 	square.x = 100;
@@ -32,7 +41,7 @@ void initGameObjects() {
 	square.type = DYNAMIC;
 	square.color = (Color){255, 0, 0, 255};
 
-	ground.w = WIDTH;
+	ground.w = level1.levelWidth; 
 	ground.h = 20;
 	ground.x = 0;
 	ground.y = HEIGHT - ground.h;
@@ -75,18 +84,39 @@ void initGameObjects() {
 	platform5.color = (Color){125, 255, 30, 255};
 
 	platform6.w = 20;
-	platform6.h = HEIGHT;
-	platform6.x = WIDTH - platform6.w;
+	platform6.h = level1.levelHeight;
+	platform6.x = level1.levelWidth - platform6.w;
 	platform6.y = 0;
 	platform6.type = STATIC;
 	platform6.color = (Color){20, 255, 100, 255};
 
 	platform7.w = 20;
-	platform7.h = HEIGHT;
+	platform7.h = level1.levelHeight;
 	platform7.x = 0; 
 	platform7.y = 0;
 	platform7.type = STATIC;
 	platform7.color = (Color){20, 255, 100, 255};
+
+	platform8.w = 200;
+	platform8.h = 50;
+	platform8.x = WIDTH + 200;
+	platform8.y = 400;
+	platform8.type = STATIC;
+	platform8.color = (Color){40, 80, 90, 255};
+
+	platform9.w = 100;
+	platform9.h = 10;
+	platform9.x = 2 * WIDTH + 200;
+	platform9.y = 450;
+	platform9.type = STATIC;
+	platform9.color = (Color){40, 80, 90, 255};
+
+	platform10.w = 40;
+	platform10.h = 40;
+	platform10.x = 2 * WIDTH + 400;
+	platform10.y = 350;
+	platform10.type = STATIC;
+	platform10.color = (Color){40, 80, 90, 255};
 
 	player.canJump = false;
 	player.maxVelocityX = 10.0f;
@@ -95,15 +125,18 @@ void initGameObjects() {
 	player.xForce = 2.0f;
 	player.yForce = 3.0f;
 
-	staticObjects[0] = square;
-	staticObjects[1] = ground;
-	staticObjects[2] = platform1;
-	staticObjects[3] = platform2;
-	staticObjects[4] = platform3;
-	staticObjects[5] = platform4;
-	staticObjects[6] = platform5;
-	staticObjects[7] = platform6;
-	staticObjects[8] = platform7;
+	objects[0] = square;
+	objects[1] = ground;
+	objects[2] = platform1;
+	objects[3] = platform2;
+	objects[4] = platform3;
+	objects[5] = platform4;
+	objects[6] = platform5;
+	objects[7] = platform6;
+	objects[8] = platform7;
+	objects[9] = platform8;
+	objects[10] = platform9;
+	objects[11] = platform10;
 }
 
 void initSDL() {
@@ -120,10 +153,10 @@ void initSDL() {
 
 	// Set the defined pixel units in initGameObjects() to SDL Frect 
 	for (int i = 0; i < NUM_BODIES; i++) {
-		staticObjects[i].rect.x = staticObjects[i].x;
-		staticObjects[i].rect.y = staticObjects[i].y;
-		staticObjects[i].rect.w = staticObjects[i].w;
-		staticObjects[i].rect.h = staticObjects[i].h;
+		objects[i].rect.x = objects[i].x;
+		objects[i].rect.y = objects[i].y;
+		objects[i].rect.w = objects[i].w;
+		objects[i].rect.h = objects[i].h;
 	}
 
 	// Gets a pointer to an array that defines what keys are being pressed
@@ -142,18 +175,18 @@ void initBox2D() {
 		// Create Body definition
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 
-		b2Vec2 pos = SDLPositionToBox2D(&staticObjects[i]);
+		b2Vec2 pos = SDLPositionToBox2D(&objects[i]);
 		bodyDef.position = pos; 
 
-		if (staticObjects[i].type == DYNAMIC){
+		if (objects[i].type == DYNAMIC){
 			bodyDef.type = b2_dynamicBody;
 		}
 
 		// Create Body
-		staticObjects[i].bodyId = b2CreateBody(world.worldId, &bodyDef);
-		b2Vec2 size = SDLSizeToBox2D(&staticObjects[i]);
+		objects[i].bodyId = b2CreateBody(world.worldId, &bodyDef);
+		b2Vec2 size = SDLSizeToBox2D(&objects[i]);
 
-		staticObjects[i].polygon = b2MakeBox(size.x, size.y);
+		objects[i].polygon = b2MakeBox(size.x, size.y);
 
 		// Create Polygon Shape
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -161,9 +194,12 @@ void initBox2D() {
 		shapeDef.friction = 0.5f;
 		shapeDef.userData = "shapeDef";
 
-		b2CreatePolygonShape(staticObjects[i].bodyId, &shapeDef, &staticObjects[i].polygon);
+		// Add square shape to polygon
+		b2CreatePolygonShape(objects[i].bodyId, &shapeDef, &objects[i].polygon);
 
-		if (staticObjects[i].type == STATIC) {
+		// If the object is static, add a ground and 2 wall sensors to detect
+		// what side of the object we have hit
+		if (objects[i].type == STATIC) {
 			b2ShapeDef ground = b2DefaultShapeDef();
 			b2ShapeDef lwall = b2DefaultShapeDef();
 			b2ShapeDef rwall = b2DefaultShapeDef();
@@ -174,19 +210,20 @@ void initBox2D() {
 
 			ground.isSensor = lwall.isSensor = rwall.isSensor = true;
 
+			// This creates a shape that is offset from the center of the main body
 			// That "1" in the b2Rot took me like 2 hours to figure out :(
 			b2Polygon groundPol = b2MakeOffsetBox(size.x * .95, size.y * 0.1, (b2Vec2){0, size.y * .9}, (b2Rot){1, 0});
 			b2Polygon lwallPol = b2MakeOffsetBox(size.x * 0.1, size.y * 0.95, (b2Vec2){-size.x * 0.9, 0}, (b2Rot){1, 0});
 			b2Polygon rwallPol = b2MakeOffsetBox(size.x * 0.1, size.y * 0.1, (b2Vec2){size.x + 0.9, 0}, (b2Rot){1, 0});
 
-			b2CreatePolygonShape(staticObjects[i].bodyId, &ground, &groundPol);
-			b2CreatePolygonShape(staticObjects[i].bodyId, &lwall, &lwallPol);
-			b2CreatePolygonShape(staticObjects[i].bodyId, &rwall, &rwallPol);
+			b2CreatePolygonShape(objects[i].bodyId, &ground, &groundPol);
+			b2CreatePolygonShape(objects[i].bodyId, &lwall, &lwallPol);
+			b2CreatePolygonShape(objects[i].bodyId, &rwall, &rwallPol);
 		}
 	}
 }
 
-bool gameLoop() {
+int gameLoop() {
 	const Uint64 current = SDL_GetTicks();
 	const Uint64 elapsed = current - world.lastTime;
 	SDL_PumpEvents();
@@ -194,17 +231,17 @@ bool gameLoop() {
 
 	// Poll for Events
 	while (SDL_PollEvent(&e) != 0) {
-		if (e.type == SDL_EVENT_QUIT) return false;
+		// Quit game
+		if (e.type == SDL_EVENT_QUIT) return -1;
 	}
 
-	const b2BodyId playerId = staticObjects[0].bodyId; 
-
-	// Check if an arrow key is being pressed, if so, apply force in that direction
+	// Get player velocity
+	const b2BodyId playerId = objects[0].bodyId; 
+	b2Vec2 velocity = b2Body_GetLinearVelocity(playerId);
 	double speed = elapsed;
 
-	// Get player velocity
-	b2Vec2 velocity = b2Body_GetLinearVelocity(playerId);
-
+	// Check if an arrow key is being pressed, if so, apply force in that direction
+	// Jump if we can 
 	if (world.keys[SDL_SCANCODE_UP] && (player.canJump || player.jumpBuffer > 0)) {
 		player.canJump = false;
 		if (player.jumpBuffer > 0) player.jumpBuffer--;
@@ -212,15 +249,20 @@ bool gameLoop() {
 		b2Vec2 force = {0, player.yForce * speed};
 		b2Body_ApplyForceToCenter(playerId, force, true);
 	} 
+
+	// Move left, up to a certain speed
 	if (world.keys[SDL_SCANCODE_LEFT] && velocity.x >= -player.maxVelocityX) {
 		b2Vec2 force = {-player.xForce * speed, 0};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
+
+	// Move right, up to a certain speed
 	if (world.keys[SDL_SCANCODE_RIGHT] && velocity.x <= player.maxVelocityX) {
 		b2Vec2 force = {player.xForce * speed, 0};
 		b2Body_ApplyForceToCenter(playerId, force, true); 
 	}
 
+	// Get the sensor events in the world, i.e., if we hit a ground or wall sensor
 	b2SensorEvents sensorEvents = b2World_GetSensorEvents(world.worldId);
 	
 	// If we are touching the ground, set that we can jump
@@ -253,20 +295,32 @@ bool gameLoop() {
 	SDL_RenderClear(world.renderer);
 
 	// Get Camera Offset
-	b2Vec2 position = box2DToSDL(b2Body_GetPosition(playerId), &staticObjects[0]);
+	b2Vec2 playerPosition = b2Body_GetPosition(playerId);
+	b2Vec2 position = box2DToSDL(playerPosition, &objects[0]);
+
+	// Get the x and y offset from the center of the first screen
 	world.xoffset = (float)WIDTH / 2 - position.x;
+	world.yoffset = (float)HEIGHT / 2 - position.y;
+
+	// Don't move camera if we are on the boundaries of our world
+	if (position.x <= level1.cameraLeftOffset) world.xoffset = 0;
+	if (position.x >= level1.cameraRightOffset) world.xoffset = WIDTH - level1.levelWidth;
+	if (position.y <= level1.cameraBottomOffset) world.yoffset = 0;
+	if (position.y >= level1.cameraTopOffset) world.yoffset = HEIGHT - level1.levelHeight;
 
 	// Draw Static bodies
 	for (int i = 0; i < NUM_BODIES; i++) {
 		// Update position
-		Color color = staticObjects[i].color;
+		Color color = objects[i].color;
 
-		b2Vec2 position = box2DToSDL(b2Body_GetPosition(staticObjects[i].bodyId), &staticObjects[i]); 
-		staticObjects[i].rect.x = position.x + world.xoffset;
-		staticObjects[i].rect.y = position.y;
+		// Get the Box2D object's position as SDL, add offsets to it
+		b2Vec2 position = box2DToSDL(b2Body_GetPosition(objects[i].bodyId), &objects[i]); 
+		objects[i].rect.x = position.x + world.xoffset;
+		objects[i].rect.y = position.y + world.yoffset;
 
+		// Render object will color
 		SDL_SetRenderDrawColor(world.renderer, color.r, color.g, color.b, color.a);
-		SDL_RenderFillRect(world.renderer, &staticObjects[i].rect);
+		SDL_RenderFillRect(world.renderer, &objects[i].rect);
 	}
 
 	// Display Screen
@@ -279,7 +333,8 @@ bool gameLoop() {
 	}
 	world.lastTime = current;
 
-	return true;
+	// Means continue game loop
+	return 0;
 }
 
 void kill() {

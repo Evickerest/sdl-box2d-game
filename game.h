@@ -20,7 +20,8 @@ void initSDL(void);
 void initBox2D(void);
 
 // Main game loop: handles inputs, calculates, and renders
-bool gameLoop(void);
+// Returns 1 if active, 0 or -1 if not
+int gameLoop(void);
 
 // Cleans up
 void kill(void);
@@ -35,6 +36,15 @@ typedef enum ObjectType {
 	DYNAMIC
 } ObjectType;
 
+typedef struct Level {
+	float levelWidth;
+	float levelHeight;
+	float cameraLeftOffset;
+	float cameraRightOffset;
+	float cameraTopOffset;
+	float cameraBottomOffset;
+} Level;
+
 typedef struct World {
 	const bool *keys;
 	b2WorldId worldId;
@@ -42,6 +52,7 @@ typedef struct World {
 	SDL_Renderer *renderer;
 	Uint64 lastTime;
 	float xoffset;
+	float yoffset;
 } World;
 
 typedef struct Color {
