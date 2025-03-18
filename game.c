@@ -27,7 +27,7 @@ void initGameObjects() {
 	Object platform8, platform9, platform10;
 
 	level1.levelWidth = WIDTH * 3;
-	level1.levelHeight = HEIGHT;
+	level1.levelHeight = HEIGHT * 2;
  	level1.cameraLeftOffset = (float)WIDTH / 2;
 	level1.cameraRightOffset = level1.levelWidth - level1.cameraLeftOffset;
 	level1.cameraBottomOffset = (float)HEIGHT / 2;
@@ -35,7 +35,7 @@ void initGameObjects() {
 
 	// Units are in pixels
 	square.x = 100;
-	square.y = 100;
+	square.y = 100 + HEIGHT;
 	square.w = 50;
 	square.h = 50;
 	square.type = DYNAMIC;
@@ -44,42 +44,42 @@ void initGameObjects() {
 	ground.w = level1.levelWidth; 
 	ground.h = 20;
 	ground.x = 0;
-	ground.y = HEIGHT - ground.h;
+	ground.y = HEIGHT - ground.h + HEIGHT;
 	ground.type = STATIC;
 	ground.color = (Color){0, 255, 0, 255};
 
 	platform1.w = 200;
 	platform1.h = 20;
 	platform1.x = 200;
-	platform1.y = 300;
+	platform1.y = 300 + HEIGHT;
 	platform1.type = STATIC;
 	platform1.color = (Color){0, 255, 255, 255};
 
 	platform2.w = 100;
 	platform2.h = 20;
 	platform2.x = 40;
-	platform2.y = 400;
+	platform2.y = 400 + HEIGHT;
 	platform2.type = STATIC;
 	platform2.color = (Color){0, 0, 255, 255};
 
 	platform3.w = 200;
 	platform3.h = 40;
 	platform3.x = 400;
-	platform3.y = 100;
+	platform3.y = 100 + HEIGHT;
 	platform3.type = STATIC;
 	platform3.color = (Color){0, 0, 255, 255};
 
 	platform4.w = 50;
 	platform4.h = 50;
 	platform4.x = 400;
-	platform4.y = 50;
+	platform4.y = 50 + HEIGHT;
 	platform4.type = DYNAMIC;
 	platform4.color = (Color){255, 20, 255, 255};
 
 	platform5.w = 150;
 	platform5.h = 20;
 	platform5.x = 175;
-	platform5.y = 190;
+	platform5.y = 190 + HEIGHT;
 	platform5.type = STATIC;
 	platform5.color = (Color){125, 255, 30, 255};
 
@@ -100,21 +100,21 @@ void initGameObjects() {
 	platform8.w = 200;
 	platform8.h = 50;
 	platform8.x = WIDTH + 200;
-	platform8.y = 400;
+	platform8.y = 400 + HEIGHT;
 	platform8.type = STATIC;
 	platform8.color = (Color){40, 80, 90, 255};
 
 	platform9.w = 100;
 	platform9.h = 10;
 	platform9.x = 2 * WIDTH + 200;
-	platform9.y = 450;
+	platform9.y = 450 + HEIGHT;
 	platform9.type = STATIC;
 	platform9.color = (Color){40, 80, 90, 255};
 
 	platform10.w = 40;
 	platform10.h = 40;
 	platform10.x = 2 * WIDTH + 400;
-	platform10.y = 350;
+	platform10.y = 350 + HEIGHT;
 	platform10.type = STATIC;
 	platform10.color = (Color){40, 80, 90, 255};
 
@@ -185,6 +185,9 @@ void initBox2D() {
 		// Create Body
 		objects[i].bodyId = b2CreateBody(world.worldId, &bodyDef);
 		b2Vec2 size = SDLSizeToBox2D(&objects[i]);
+		b2MassData mass;
+		mass.mass = 15.0f;
+		b2Body_SetMassData(objects[i].bodyId, mass); 
 
 		objects[i].polygon = b2MakeBox(size.x, size.y);
 
@@ -302,7 +305,6 @@ int gameLoop() {
 	world.xoffset = (float)WIDTH / 2 - position.x;
 	world.yoffset = (float)HEIGHT / 2 - position.y;
 
-	// Don't move camera if we are on the boundaries of our world
 	if (position.x <= level1.cameraLeftOffset) world.xoffset = 0;
 	if (position.x >= level1.cameraRightOffset) world.xoffset = WIDTH - level1.levelWidth;
 	if (position.y <= level1.cameraBottomOffset) world.yoffset = 0;
