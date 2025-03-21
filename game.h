@@ -24,18 +24,20 @@ void initBox2D(void);
 int gameLoop(void);
 
 // Cleans up
-void kill(void);
+void cleanup(void);
 
 const static int WIDTH = 1000;
 const static int HEIGHT = 500;
 const static float MS_PER_SECOND = 16.67; 
 const static float PIXELS_PER_METER = 50.0f;
 
+// Object type for Box2D and Others
 typedef enum ObjectType {
 	STATIC,
 	DYNAMIC
 } ObjectType;
 
+// Defines information relating to a Game level
 typedef struct Level {
 	float levelWidth;
 	float levelHeight;
@@ -43,8 +45,10 @@ typedef struct Level {
 	float cameraRightOffset;
 	float cameraTopOffset;
 	float cameraBottomOffset;
+	int levelStatus;
 } Level;
 
+// Defines information related to the world, with some globals
 typedef struct World {
 	const bool *keys;
 	b2WorldId worldId;
@@ -55,6 +59,7 @@ typedef struct World {
 	float yoffset;
 } World;
 
+// Color struct for rendering objects in SDL
 typedef struct Color {
 	int r;
 	int g;
@@ -62,11 +67,18 @@ typedef struct Color {
 	int a;
 } Color;
 
-typedef struct Object {
+// Defines posistion and size information
+typedef struct Position {
 	float x;
 	float y;
 	float w;
 	float h;
+} p;
+
+// Defines some generic rectangle object in the world, 
+// Keeps information for Box2D and SDL
+typedef struct Object {
+	p p;
 	SDL_FRect rect;
 	b2BodyId bodyId;
 	ObjectType type;
@@ -74,6 +86,7 @@ typedef struct Object {
 	Color color;
 } Object;
 
+// Defines player information and velocity constraints
 typedef struct Player {
 	bool canJump;
 	bool canWallJump;
@@ -82,5 +95,6 @@ typedef struct Player {
 	float maxVelocityX;
 	float xForce;
 	float yForce; 
+	b2Vec2 desiredVelocity;
 } Player;
 

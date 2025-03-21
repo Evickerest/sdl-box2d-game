@@ -10,14 +10,14 @@ float meterToPixel(const float value) {
 }
 
 b2Vec2 box2DToSDL(b2Vec2 vector, Object *object) {
-	vector.x = meterToPixel(vector.x) - object->w / 2;
-	vector.y = HEIGHT - meterToPixel(vector.y) - object->h / 2;
+	vector.x = meterToPixel(vector.x) - object->p.w / 2;
+	vector.y = HEIGHT - meterToPixel(vector.y) - object->p.h / 2;
 	return vector;
 }
 
 b2Vec2 SDLToBox2D(b2Vec2 vector, Object *object) {
-	vector.x = pixelToMeter(vector.x + object->w / 2); 
-	vector.y = pixelToMeter(HEIGHT - vector.y + object->h / 2);
+	vector.x = pixelToMeter(vector.x + object->p.w / 2); 
+	vector.y = pixelToMeter(HEIGHT - vector.y + object->p.h / 2);
 	return vector;
 }
 
@@ -30,13 +30,13 @@ b2Vec2 SDLXYToBox2D(float x, float y) {
 }
 
 b2Vec2 SDLPositionToBox2D(Object *object) {
-	float x = (object->w / 2) + object->x;
-	float y = (object->h / 2) + object->y;
+	float x = (object->p.w / 2) + object->p.x;
+	float y = (object->p.h / 2) + object->p.y;
 	return SDLXYToBox2D(x, y);
 }
 
 b2Vec2 SDLSizeToBox2D(Object *object) {
-	float w = object->w / 2;
-	float h = object->h / 2;
+	float w = object->p.w / 2;
+	float h = object->p.h / 2;
 	return (b2Vec2){pixelToMeter(w), pixelToMeter(h)};
 }

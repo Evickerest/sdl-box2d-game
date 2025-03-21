@@ -8,7 +8,7 @@ int main() {
 
 	while ((levelStatus = gameLoop()) == 0); 
 	if (levelStatus == -1) {
-		kill();
+		cleanup();
 		return 0;
 	}
 
