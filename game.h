@@ -34,7 +34,8 @@ const static float PIXELS_PER_METER = 50.0f;
 // Object type for Box2D and Others
 typedef enum ObjectType {
 	STATIC,
-	DYNAMIC
+	DYNAMIC,
+	COLLECTIBLE
 } ObjectType;
 
 // Defines information relating to a Game level
@@ -81,9 +82,11 @@ typedef struct Object {
 	p p;
 	SDL_FRect rect;
 	b2BodyId bodyId;
+	b2ShapeId shapeId;
 	ObjectType type;
 	b2Polygon polygon;
 	Color color;
+	bool draw;
 } Object;
 
 // Defines player information and velocity constraints
@@ -97,4 +100,3 @@ typedef struct Player {
 	float yForce; 
 	b2Vec2 desiredVelocity;
 } Player;
-

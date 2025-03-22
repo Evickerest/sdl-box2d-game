@@ -4,6 +4,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
+#include <SDL3/SDL_timer.h>
 #include <box2d/collision.h>
 #include <box2d/id.h>
 #include <box2d/math_functions.h>
@@ -12,10 +13,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "game.h" 
 #include "utils.h"
+#include "render.h"
 
-#define NUM_BODIES 17
+#define NUM_BODIES 19
 
 World world;
 Player player;
@@ -26,6 +29,7 @@ void initGameObjects() {
 	Object square, ground, platform1, platform2, platform3, platform4, platform5, platform6, platform7;
 	Object platform8, platform9, platform10;
 	Object box1, box2, box3, wallleft, wallright;
+	Object circle1, circle2;
 
 	level1.levelWidth = WIDTH * 3;
 	level1.levelHeight = HEIGHT * 2;
@@ -104,6 +108,14 @@ void initGameObjects() {
 	wallright.type = STATIC;
 	wallright.color = (Color){50, 120, 255, 255};
 
+	circle1.p = (p){300, HEIGHT * 2 - 50, 50, 50};
+	circle1.type = COLLECTIBLE;
+	circle1.color = (Color){255, 255, 0, 0};
+
+	circle2.p = (p){350, HEIGHT * 2 - 50, 50, 50};
+	circle2.type = COLLECTIBLE;
+	circle2.color = (Color){255, 255, 0, 0};
+
 	player.canJump = false;
 	player.maxVelocityX = 10.0f;
 	player.jumpBuffer = 0;
@@ -128,6 +140,10 @@ void initGameObjects() {
 	objects[14] = box3;
 	objects[15] = wallleft;
 	objects[16] = wallright;
+	objects[17] = circle1;
+	objects[18] = circle2;
+
+	for (int i = 0; i < NUM_BODIES; i++) objects[i].draw = true;
 }
 
 void initSDL() {
@@ -137,6 +153,7 @@ void initSDL() {
         exit(1);
     }
 
+	// Creates Window
     if (!SDL_CreateWindowAndRenderer("Game", WIDTH, HEIGHT, 0, &world.window, &world.renderer)) {
         SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
         exit(1);
@@ -163,46 +180,66 @@ void initBox2D() {
 
 	// Create Static bodies
 	for (int i = 0; i < NUM_BODIES; i++) {
+		Object* obj = &objects[i];
+
 		// Create Body definition
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 
-		b2Vec2 pos = SDLPositionToBox2D(&objects[i]);
-		bodyDef.position = pos; 
+		// SDL position and Box2D positions are different, so we convert between our pixel positioning to
+		// Box2D positioning here
+		bodyDef.position = SDLPositionToBox2D(obj);
 
-		if (objects[i].type == DYNAMIC){
-			bodyDef.type = b2_dynamicBody;
-		}
+		// If dealing with a dynamic object, tell box2D we need physics!!!
+		if (obj->type == DYNAMIC) bodyDef.type = b2_dynamicBody;
 
 		// Create Body
-		objects[i].bodyId = b2CreateBody(world.worldId, &bodyDef);
-		b2Vec2 size = SDLSizeToBox2D(&objects[i]);
+		obj->bodyId = b2CreateBody(world.worldId, &bodyDef);
+
+		// Convert between SDL pixel to Box2D meter
+		b2Vec2 size = SDLSizeToBox2D(obj);
+
+		// Set mass Data
 		b2MassData mass;
 		mass.mass = 23.0f;
-		b2Body_SetMassData(objects[i].bodyId, mass); 
-
-		objects[i].polygon = b2MakeBox(size.x, size.y);
+		b2Body_SetMassData(obj->bodyId, mass); 
 
 		// Create Polygon Shape
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
-		shapeDef.userData = "shapeDef";
 
-		// Add square shape to polygon
-		b2CreatePolygonShape(objects[i].bodyId, &shapeDef, &objects[i].polygon);
+		// Add shape to polygon depending on object type
+		if (obj->type != COLLECTIBLE) {
+			// Make object shape depending on what type of object we are dealing with
+			obj->polygon = b2MakeBox(size.x, size.y);
+
+			// Add polygon box to our shape
+			obj->shapeId = b2CreatePolygonShape(obj->bodyId, &shapeDef, &obj->polygon);
+			
+		} else {
+			// Create circle
+			b2Circle circle;
+			circle.radius = size.x; 
+			circle.center = (b2Vec2){0,0}; 
+
+			// Set is sensor to turn of collisions
+			shapeDef.isSensor = true;
+			shapeDef.userData = "collectible";
+
+			// Add circle to our shape
+			obj->shapeId = b2CreateCircleShape(obj->bodyId, &shapeDef, &circle);
+		}
 
 		// If the object is static, add a ground and 2 wall sensors to detect
 		// what side of the object we have hit
-		if (objects[i].type == STATIC) {
+		if (obj->type == STATIC) {
 			b2ShapeDef ground = b2DefaultShapeDef();
 			b2ShapeDef lwall = b2DefaultShapeDef();
 			b2ShapeDef rwall = b2DefaultShapeDef();
 
-			ground.userData = "ground";
-			lwall.userData = "wall";
-			rwall.userData = "wall";
-
 			ground.isSensor = lwall.isSensor = rwall.isSensor = true;
+			lwall.userData = rwall.userData = "wall";
+			ground.userData = "ground";
 
 			// This creates a shape that is offset from the center of the main body
 			// That "1" in the b2Rot took me like 2 hours to figure out :(
@@ -210,15 +247,17 @@ void initBox2D() {
 			b2Polygon lwallPol = b2MakeOffsetBox(size.x * 0.1, size.y * 0.95, (b2Vec2){-size.x * 0.9, 0}, (b2Rot){1, 0});
 			b2Polygon rwallPol = b2MakeOffsetBox(size.x * 0.1, size.y * 0.1, (b2Vec2){size.x + 0.9, 0}, (b2Rot){1, 0});
 
-			b2CreatePolygonShape(objects[i].bodyId, &ground, &groundPol);
-			b2CreatePolygonShape(objects[i].bodyId, &lwall, &lwallPol);
-			b2CreatePolygonShape(objects[i].bodyId, &rwall, &rwallPol);
-		}
+			// Add sensors to polygon
+			b2CreatePolygonShape(obj->bodyId, &ground, &groundPol);
+			b2CreatePolygonShape(obj->bodyId, &lwall, &lwallPol);
+			b2CreatePolygonShape(obj->bodyId, &rwall, &rwallPol);
+		} 
 	}
 }
 
 // Handles game inputs, returns a vector of the desired player velocity
 void handleInputs(double elapsed) {
+	// Pump events gets us the next events for the game
 	SDL_PumpEvents();
 	SDL_Event e;
 
@@ -262,6 +301,16 @@ void handleInputs(double elapsed) {
 	player.desiredVelocity = force;
 }
 
+// Locate collectible object and set draw to false so we don't draw it
+void clearCollectible(b2ShapeId shapeId) {
+	for(int i = 0; i < NUM_BODIES; i++) {
+		if (objects[i].shapeId.index1 == shapeId.index1) {
+			objects[i].draw = false;
+			break;
+		}
+	}
+}
+
 void handlePhysics() {
 	const b2BodyId playerId = objects[0].bodyId;
 
@@ -271,6 +320,11 @@ void handlePhysics() {
 	// Get the sensor events in the world, i.e., if we hit a ground or wall sensor
 	b2SensorEvents sensorEvents = b2World_GetSensorEvents(world.worldId);
 	
+	// A bit hacky but for some reason why box 2d starts it says we have hit a bunch
+	// of objects, so this is to give some buffer space between when the game starts
+	// and the player is able to do anything
+	if (SDL_GetTicks() > 500) {
+
 	// Go through all the objects we are collided with
 	for (int i = 0; i < sensorEvents.beginCount; i++) {
 		b2SensorBeginTouchEvent* beginTouch = sensorEvents.beginEvents + i;
@@ -280,6 +334,11 @@ void handlePhysics() {
 		if (strcmp(sensor, "ground") == 0) {
 			player.canJump = true;
 			player.jumpBuffer = player.bufferFrames;
+		}
+
+		// If we touch a collectible
+		if (strcmp(sensor, "collectible") == 0) {
+			clearCollectible(beginTouch->sensorShapeId);
 		}
 
 		// If we touch a wall sensor and holding shift
@@ -297,6 +356,7 @@ void handlePhysics() {
 			player.canJump = false;
 			player.jumpBuffer = 0;
 		}
+	}
 	}
 
 	// Step physics simulation
@@ -323,17 +383,25 @@ void render(Uint64 startTime) {
 	if (position.y <= level1.cameraBottomOffset) world.yoffset = 0;
 	if (position.y >= level1.cameraTopOffset) world.yoffset = HEIGHT - level1.levelHeight;
 
-	// Draw Static bodies
+	// Draw bodies
 	for (int i = 0; i < NUM_BODIES; i++) {
-		// Get the Box2D object's position as SDL, add offsets to it
-		b2Vec2 position = box2DToSDL(b2Body_GetPosition(objects[i].bodyId), &objects[i]); 
-		objects[i].rect.x = position.x + world.xoffset;
-		objects[i].rect.y = position.y + world.yoffset;
+		Object* obj = &objects[i];
 
-		// Render object With Color
-		Color color = objects[i].color;
-		SDL_SetRenderDrawColor(world.renderer, color.r, color.g, color.b, color.a);
-		SDL_RenderFillRect(world.renderer, &objects[i].rect);
+		if (!obj->draw) continue;
+
+		// Get the Box2D object's position as SDL, add offsets to it
+		b2Vec2 position = box2DToSDL(b2Body_GetPosition(obj->bodyId), obj); 
+
+		// Add to our objects position the world offsets
+		obj->rect.x = position.x + world.xoffset;
+		obj->rect.y = position.y + world.yoffset;
+
+		// Draw object shape depending on object type
+		if (obj->type != COLLECTIBLE) {
+			renderRectangle(world.renderer, obj);
+		} else {
+			renderCircle(world.renderer, obj);
+		}
 	}
 
 	// Display Screen
