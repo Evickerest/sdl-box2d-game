@@ -18,133 +18,9 @@
 #include "utils.h"
 #include "render.h"
 
-#define NUM_BODIES 19
-
 World world;
 Player player;
-Level level1;
-Object objects[NUM_BODIES];
-
-void initGameObjects() {
-	Object square, ground, platform1, platform2, platform3, platform4, platform5, platform6, platform7;
-	Object platform8, platform9, platform10;
-	Object box1, box2, box3, wallleft, wallright;
-	Object circle1, circle2;
-
-	level1.levelWidth = WIDTH * 3;
-	level1.levelHeight = HEIGHT * 2;
- 	level1.cameraLeftOffset = (float)WIDTH / 2;
-	level1.cameraRightOffset = level1.levelWidth - level1.cameraLeftOffset;
-	level1.cameraBottomOffset = (float)HEIGHT / 2;
-	level1.cameraTopOffset = level1.levelHeight - level1.cameraBottomOffset;
-	level1.levelStatus = 0;
-
-	// Units are in pixels
-	square.p = (p){ 100, 100 + HEIGHT, 50, 50};
-	square.type = DYNAMIC;
-	square.color = (Color){255, 0, 0, 255};
-
-	ground.p = (p){0,HEIGHT - 20 + HEIGHT,level1.levelWidth,20};
-	ground.type = STATIC;
-	ground.color = (Color){0, 255, 0, 255};
-
-	platform1.p = (p){200,300 + HEIGHT,200,20};
-	platform1.type = STATIC;
-	platform1.color = (Color){0, 255, 255, 255};
-
-	platform2.p = (p){40,400 + HEIGHT,100,20};
-	platform2.type = STATIC;
-	platform2.color = (Color){0, 0, 255, 255};
-
-	platform3.p = (p){400,100 + HEIGHT,200,40};
-	platform3.type = STATIC;
-	platform3.color = (Color){0, 0, 255, 255};
-
-	platform4.p = (p){400,50 + HEIGHT,50,50};
-	platform4.type = DYNAMIC;
-	platform4.color = (Color){255, 20, 255, 255};
-
-	platform5.p = (p){175,190 + HEIGHT,150,20};
-	platform5.type = STATIC;
-	platform5.color = (Color){125, 255, 30, 255};
-
-	platform6.p = (p){level1.levelWidth - 20,0,20,level1.levelHeight};
-	platform6.type = STATIC;
-	platform6.color = (Color){20, 255, 100, 255};
-
-	platform7.p = (p){0,0,20,level1.levelHeight};
-	platform7.type = STATIC;
-	platform7.color = (Color){20, 255, 100, 255};
-
-	platform8.p = (p){WIDTH + 200,400 + HEIGHT,200,50};
-	platform8.type = STATIC;
-	platform8.color = (Color){40, 80, 90, 255};
-
-	platform9.p = (p){2 * WIDTH + 200,450 + HEIGHT,100,10};
-	platform9.type = STATIC;
-	platform9.color = (Color){40, 80, 90, 255};
-
-	platform10.p = (p){2 * WIDTH + 400,350 + HEIGHT,40,40};
-	platform10.type = STATIC;
-	platform10.color = (Color){40, 80, 90, 255};
-
-	box1.p = (p){WIDTH + 250,300 + HEIGHT,50,50};
-	box1.type = DYNAMIC;
-	box1.color = (Color){255, 0, 255, 255};
-
-	box2.p = (p){WIDTH + 250,250 + HEIGHT,50,50};
-	box2.type = DYNAMIC;
-	box2.color = (Color){255, 40, 255, 255};
-
-	box3.p = (p){WIDTH + 250,200 + HEIGHT,50,50};
-	box3.type = DYNAMIC;
-	box3.color = (Color){255, 0, 255, 255};
-
-	wallleft.p = (p){WIDTH * 2,0,10,2 * HEIGHT - 100};
-	wallleft.type = STATIC;
-	wallleft.color = (Color){255, 50, 50, 255};
-
-	wallright.p = (p){WIDTH * 2 + 100,0,10,2 * HEIGHT - 100};
-	wallright.type = STATIC;
-	wallright.color = (Color){50, 120, 255, 255};
-
-	circle1.p = (p){300, HEIGHT * 2 - 50, 50, 50};
-	circle1.type = COLLECTIBLE;
-	circle1.color = (Color){255, 255, 0, 0};
-
-	circle2.p = (p){350, HEIGHT * 2 - 50, 50, 50};
-	circle2.type = COLLECTIBLE;
-	circle2.color = (Color){255, 255, 0, 0};
-
-	player.canJump = false;
-	player.maxVelocityX = 10.0f;
-	player.jumpBuffer = 0;
-	player.bufferFrames = 10;
-	player.xForce = 2.0f;
-	player.yForce = 3.0f;
-
-	objects[0] = square;
-	objects[1] = ground;
-	objects[2] = platform1;
-	objects[3] = platform2;
-	objects[4] = platform3;
-	objects[5] = platform4;
-	objects[6] = platform5;
-	objects[7] = platform6;
-	objects[8] = platform7;
-	objects[9] = platform8;
-	objects[10] = platform9;
-	objects[11] = platform10;
-	objects[12] = box1;
-	objects[13] = box2;
-	objects[14] = box3;
-	objects[15] = wallleft;
-	objects[16] = wallright;
-	objects[17] = circle1;
-	objects[18] = circle2;
-
-	for (int i = 0; i < NUM_BODIES; i++) objects[i].draw = true;
-}
+Object* objects;
 
 void initSDL() {
 	// Initalize the SDL library
@@ -159,17 +35,19 @@ void initSDL() {
         exit(1);
     }
 
+	// Gets a pointer to an array that defines what keys are being pressed
+	world.keys = SDL_GetKeyboardState(NULL);
+	world.lastTime = SDL_GetTicks();
+}
+
+void connectSDLtoObjects() {
 	// Set the defined pixel units in initGameObjects() to SDL Frect 
-	for (int i = 0; i < NUM_BODIES; i++) {
+	for (int i = 0; i < world.numberOfObjects; i++) {
 		objects[i].rect.x = objects[i].p.x;
 		objects[i].rect.y = objects[i].p.y;
 		objects[i].rect.w = objects[i].p.w;
 		objects[i].rect.h = objects[i].p.h;
 	}
-
-	// Gets a pointer to an array that defines what keys are being pressed
-	world.keys = SDL_GetKeyboardState(NULL);
-	world.lastTime = SDL_GetTicks();
 }
 
 void initBox2D() {
@@ -179,7 +57,7 @@ void initBox2D() {
 	world.worldId = b2CreateWorld(&worldDef);
 
 	// Create Static bodies
-	for (int i = 0; i < NUM_BODIES; i++) {
+	for (int i = 0; i < world.numberOfObjects; i++) {
 		Object* obj = &objects[i];
 
 		// Create Body definition
@@ -200,7 +78,9 @@ void initBox2D() {
 
 		// Set mass Data
 		b2MassData mass;
-		mass.mass = 23.0f;
+		mass.mass = 40.0f;
+		mass.center = (b2Vec2){0, 0};
+		mass.rotationalInertia = 0.0;
 		b2Body_SetMassData(obj->bodyId, mass); 
 
 		// Create Polygon Shape
@@ -264,7 +144,7 @@ void handleInputs(double elapsed) {
 	// Poll for Events
 	while (SDL_PollEvent(&e) != 0) {
 		// Quit game
-		if (e.type == SDL_EVENT_QUIT) level1.levelStatus = -1;
+		if (e.type == SDL_EVENT_QUIT) world.level.levelStatus = -1;
 	}
 
 	// Get player velocity
@@ -303,7 +183,7 @@ void handleInputs(double elapsed) {
 
 // Locate collectible object and set draw to false so we don't draw it
 void clearCollectible(b2ShapeId shapeId) {
-	for(int i = 0; i < NUM_BODIES; i++) {
+	for(int i = 0; i < world.numberOfObjects; i++) {
 		if (objects[i].shapeId.index1 == shapeId.index1) {
 			objects[i].draw = false;
 			break;
@@ -339,6 +219,7 @@ void handlePhysics() {
 		// If we touch a collectible
 		if (strcmp(sensor, "collectible") == 0) {
 			clearCollectible(beginTouch->sensorShapeId);
+			world.level.collectiblesNeeded--;
 		}
 
 		// If we touch a wall sensor and holding shift
@@ -378,15 +259,16 @@ void render(Uint64 startTime) {
 	world.yoffset = (float)HEIGHT / 2 - position.y;
 
 	// If we are on the boundaries of the world, set the world offset to a constand value, i.e., unchanging
-	if (position.x <= level1.cameraLeftOffset) world.xoffset = 0;
-	if (position.x >= level1.cameraRightOffset) world.xoffset = WIDTH - level1.levelWidth;
-	if (position.y <= level1.cameraBottomOffset) world.yoffset = 0;
-	if (position.y >= level1.cameraTopOffset) world.yoffset = HEIGHT - level1.levelHeight;
+	if (position.x <= world.level.cameraLeftOffset) world.xoffset = 0;
+	if (position.x >= world.level.cameraRightOffset) world.xoffset = WIDTH - world.level.levelWidth;
+	if (position.y <= world.level.cameraBottomOffset) world.yoffset = 0;
+	if (position.y >= world.level.cameraTopOffset) world.yoffset = HEIGHT - world.level.levelHeight;
 
 	// Draw bodies
-	for (int i = 0; i < NUM_BODIES; i++) {
+	for (int i = 0; i < world.numberOfObjects; i++) {
 		Object* obj = &objects[i];
 
+		// Determine if we should draw the object
 		if (!obj->draw) continue;
 
 		// Get the Box2D object's position as SDL, add offsets to it
@@ -429,17 +311,142 @@ int gameLoop() {
 	// Take in startTime to calculate how much to wait for this frame
 	render(startTime);
 
+	// If we collect all the collectibles, set level status to completed
+	if (world.level.collectiblesNeeded <= 0) world.level.levelStatus = 1;
+
 	// Loop in main.c if = 0, else quit
-	return level1.levelStatus;
+	return world.level.levelStatus;
 }
 
+// This justs destroys Box2D so we can create a new level
+void cleanLevel() {
+	b2DestroyWorld(world.worldId);
+	free(objects);
+}
 
-void cleanup() {
+// This cleans up everything
+void cleanUp() {
 	// Clean up SDL
 	SDL_DestroyRenderer(world.renderer);
 	SDL_DestroyWindow(world.window);
 	SDL_Quit();
+	cleanLevel();
+}
 
-	// Destroy Box2D world, also destroys everything else
-	b2DestroyWorld(world.worldId);
+void initalizeLevel1Objects() {
+	// Create world, set up level information
+	world.level.levelWidth = WIDTH * 3;
+	world.level.levelHeight = HEIGHT * 2;
+ 	world.level.cameraLeftOffset = (float)WIDTH / 2;
+	world.level.cameraRightOffset = world.level.levelWidth - world.level.cameraLeftOffset;
+	world.level.cameraBottomOffset = (float)HEIGHT / 2;
+	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
+	world.level.levelStatus = 0;
+	world.level.collectiblesNeeded = 2;
+	world.numberOfObjects = 19;
+
+	// Allocate space for our object array
+	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
+	if (objects == NULL) {
+		puts("Error! Failed to intialized object array!");
+	}
+
+	// Initalize objects
+	objects[0] = (Object){.p = (p){100, 100 + HEIGHT, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
+	objects[1] = (Object){.p = (p){0,HEIGHT - 20 + HEIGHT, world.level.levelWidth, 20}, .color = (Color){0, 255, 0, 255}, .type = STATIC}; // Ground
+	objects[2] = (Object){.p = (p){200,300 + HEIGHT,200,20}, .color = (Color){0, 255, 255, 255}, .type = STATIC}; // Platform 1
+	objects[3] = (Object){.p = (p){40,400 + HEIGHT,100,20}, .color = (Color){0, 0, 255, 255}, .type = STATIC}; // p2
+	objects[4] = (Object){.p = (p){400,100 + HEIGHT,200,40}, .color = (Color){0, 0, 255, 255}, .type = STATIC}; // p3
+	objects[5] = (Object){.p = (p){400,50 + HEIGHT,50,50}, .color = (Color){255, 20, 255, 255}, .type = DYNAMIC}; // p4
+	objects[6] = (Object){.p = (p){175,190 + HEIGHT,150,20}, .color = (Color){125, 255, 30, 255}, .type = STATIC}; // p5
+	objects[7] = (Object){.p = (p){world.level.levelWidth - 20,0,20,world.level.levelHeight}, .color = (Color){20, 255, 100, 255}, .type = STATIC}; // p6
+	objects[8] = (Object){.p = (p){0,0,20,world.level.levelHeight}, .color = (Color){20, 255, 100, 255}, .type = STATIC}; // p7
+	objects[9] = (Object){.p = (p){WIDTH + 200,400 + HEIGHT,200,50}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p8
+	objects[10] = (Object){.p = (p){2 * WIDTH + 200,450 + HEIGHT,100,10}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p9
+	objects[11] = (Object){.p = (p){2 * WIDTH + 400,350 + HEIGHT,40,40}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p10
+	objects[12] = (Object){.p = (p){WIDTH + 250,300 + HEIGHT,50,50}, .color = (Color){255, 0, 255, 255}, .type = DYNAMIC}; // Box 1
+	objects[13] = (Object){.p = (p){WIDTH + 250,250 + HEIGHT,50,50}, .color = (Color){255, 40, 255, 255}, .type = DYNAMIC}; // Box 2
+	objects[14] = (Object){.p = (p){WIDTH + 250,200 + HEIGHT,50,50}, .color = (Color){255, 0, 255, 255}, .type = DYNAMIC}; // Box3
+	objects[15] = (Object){.p = (p){WIDTH * 2,0,10,2 * HEIGHT - 100}, .color = (Color){255, 50, 50, 255}, .type = STATIC}; // Wall Left
+	objects[16] = (Object){.p = (p){WIDTH * 2 + 100,0,10,2 * HEIGHT - 100}, .color = (Color){50, 120, 255, 255}, .type = STATIC}; // Wall Right
+	objects[17] = (Object){.p = (p){300, HEIGHT * 2 - 50, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // collectible 1
+	objects[18] = (Object){.p = (p){350, HEIGHT * 2 - 50, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	
+	// Initalize player
+	player.canJump = false;
+	player.maxVelocityX = 10.0f;
+	player.jumpBuffer = 0;
+	player.bufferFrames = 10;
+	player.xForce = 2.0f;
+	player.yForce = 3.0f;
+
+	// Set it so everything is visible
+	for (int i = 0; i < world.numberOfObjects; i++) objects[i].draw = true;
+}
+
+void initalizeLevel2Objects() {
+	// Create world, set up level information
+	world.level.levelWidth = WIDTH;
+	world.level.levelHeight = HEIGHT;
+ 	world.level.cameraLeftOffset = (float)WIDTH / 2;
+	world.level.cameraRightOffset = world.level.levelWidth - world.level.cameraLeftOffset;
+	world.level.cameraBottomOffset = (float)HEIGHT / 2;
+	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
+	world.level.levelStatus = 0;
+	world.level.collectiblesNeeded = 4;
+	world.numberOfObjects = 8;
+
+	// Allocate space for our object array
+	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
+	if (objects == NULL) {
+		puts("Error! Failed to intialized object array!");
+	}
+
+	// Initalize objects
+	objects[0] = (Object){.p = (p){100, 100, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
+	objects[1] = (Object){.p = (p){0, HEIGHT - 20, WIDTH, 20}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Ground
+	objects[2] = (Object){.p = (p){0, 0, 20, HEIGHT}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Left Wall
+	objects[3] = (Object){.p = (p){WIDTH - 20, 0, 20, HEIGHT}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Right Wall
+	objects[4] = (Object){.p = (p){200, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[5] = (Object){.p = (p){300, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[6] = (Object){.p = (p){400, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[7] = (Object){.p = (p){500, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	
+	// Initalize player
+	player.canJump = false;
+
+	// Set it so everything is visible
+	for (int i = 0; i < world.numberOfObjects; i++) objects[i].draw = true;
+}
+
+void initalizeLevel3Objects() {
+	// Create world, set up level information
+	world.level.levelWidth = WIDTH * 2;
+	world.level.levelHeight = HEIGHT;
+ 	world.level.cameraLeftOffset = (float)WIDTH / 2;
+	world.level.cameraRightOffset = world.level.levelWidth - world.level.cameraLeftOffset;
+	world.level.cameraBottomOffset = (float)HEIGHT / 2;
+	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
+	world.level.levelStatus = 0;
+	world.level.collectiblesNeeded = 2;
+	world.numberOfObjects = 4;
+
+	// Allocate space for our object array
+	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
+	if (objects == NULL) {
+		puts("Error! Failed to intialized object array!");
+	}
+
+	// Initalize objects
+	objects[0] = (Object){.p = (p){100, 100, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
+	objects[1] = (Object){.p = (p){0, HEIGHT - 20, WIDTH * 2, 20}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Ground
+	objects[2] = (Object){.p = (p){0, 0, 20, HEIGHT}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Left Wall
+	objects[3] = (Object){.p = (p){WIDTH * 2 - 20, 0, 20, HEIGHT}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Right Wall
+	
+	// Initalize player
+	player.canJump = false;
+
+	// Set it so everything is visible
+	for (int i = 0; i < world.numberOfObjects; i++) objects[i].draw = true;
+
 }

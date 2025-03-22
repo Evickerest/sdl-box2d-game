@@ -11,10 +11,16 @@
 #include <box2d/box2d.h>
 
 // Initalize the custom objects to manage Box2D and SDL properties
-void initGameObjects(void);
+// for our three levels
+void initalizeLevel1Objects(void);
+void initalizeLevel2Objects(void);
+void initalizeLevel3Objects(void);
 
 // Initalizes the SDL libraries and related elementes
 void initSDL(void);
+
+// Set up Objects with SDL information 
+void connectSDLtoObjects(void);
 
 // Initialized the Box2D library, and creates related elements
 void initBox2D(void);
@@ -23,8 +29,11 @@ void initBox2D(void);
 // Returns 1 if active, 0 or -1 if not
 int gameLoop(void);
 
-// Cleans up
-void cleanup(void);
+// Cleans up the whole game
+void cleanUp(void);
+
+// Cleans up just a level
+void cleanLevel(void);
 
 const static int WIDTH = 1000;
 const static int HEIGHT = 500;
@@ -47,6 +56,7 @@ typedef struct Level {
 	float cameraTopOffset;
 	float cameraBottomOffset;
 	int levelStatus;
+	int collectiblesNeeded;
 } Level;
 
 // Defines information related to the world, with some globals
@@ -57,7 +67,9 @@ typedef struct World {
 	SDL_Renderer *renderer;
 	Uint64 lastTime;
 	float xoffset;
+	Level level;
 	float yoffset;
+	int numberOfObjects;
 } World;
 
 // Color struct for rendering objects in SDL
