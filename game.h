@@ -3,6 +3,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
+#include <SDL3/SDL_stdinc.h>
 #include <box2d/id.h>
 #include <box2d/math_functions.h>
 #include <box2d/types.h>
@@ -58,6 +59,7 @@ typedef struct Level {
 	float cameraBottomOffset;
 	int levelStatus;
 	int collectiblesNeeded;
+	Uint64 starttime;
 } Level;
 
 // Defines information related to the world, with some globals

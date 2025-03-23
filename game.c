@@ -187,18 +187,23 @@ void handleInputs(double elapsed) {
 }
 
 // Locate collectible object and set draw to false so we don't draw it
-void clearCollectible(b2ShapeId shapeId) {
+// Return boolean if we succesfully cleared the collectible
+bool clearCollectible(b2ShapeId shapeId) {
 	for(int i = 0; i < world.numberOfObjects; i++) {
 		if (objects[i].shapeId.index1 == shapeId.index1) {
+			// If we already have cleared this object
+			if (objects[i].draw == false) return false;
+
 			objects[i].draw = false;
-			break;
+			return true;
 		}
 	}
+	return false;
 }
 
 b2Vec2 getKinematicVelocity(Object* obj) {
 	// Calculate velocity for kinematic platforms
-	float phase = fmod(SDL_GetTicks() / 1000.0, obj->kinematic.time);
+	float phase = fmod((SDL_GetTicks() - world.level.starttime) / 1000.0, obj->kinematic.time);
 	float period = obj->kinematic.time / 2.0;
 
 	float xint = pixelToMeter(obj->kinematic.endPos.x - obj->kinematic.startPos.x);
@@ -211,7 +216,7 @@ b2Vec2 getKinematicVelocity(Object* obj) {
 		sign = -1;
 	}
 
-	return (b2Vec2){-xint / period * sign, yint / period * sign};
+	return (b2Vec2){xint / period * sign, -yint / period * sign};
 }
 
 
@@ -242,12 +247,10 @@ void handlePhysics() {
 
 		// If we touch a collectible
 		if (strcmp(sensor, "collectible") == 0) {
-			clearCollectible(beginTouch->sensorShapeId);
-			world.level.collectiblesNeeded--;
-		}
-
-		// If we touch a wall sensor and holding shift
-		if (strcmp(sensor, "wall") == 0 && world.keys[SDL_SCANCODE_LSHIFT]) {
+			// If we have cleared the collectible, reduce count needed
+			if (clearCollectible(beginTouch->sensorShapeId)) {
+				world.level.collectiblesNeeded--;
+			}
 		}
 	}
 
@@ -269,9 +272,8 @@ void handlePhysics() {
 		Object* obj = &objects[i];
 
 		if (obj->type != KINEMATIC) continue;
-
-		b2Body_SetLinearVelocity(obj->bodyId, getKinematicVelocity(obj));
-
+		b2Vec2 vel = getKinematicVelocity(obj);
+		b2Body_SetLinearVelocity(obj->bodyId, vel);
 	}
 
 	// Step physics simulation
@@ -279,8 +281,7 @@ void handlePhysics() {
 }
 
 
-void render(Uint64 startTime) {
-	// Render background
+void render(Uint64 startTime) { // Render background
 	SDL_SetRenderDrawColor(world.renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 	SDL_RenderClear(world.renderer);
 
@@ -319,11 +320,13 @@ void render(Uint64 startTime) {
 			renderCircle(world.renderer, obj);
 		}
 	}
+
 	
 	// Render text of how many more collectibles we needed
 	SDL_SetRenderDrawColor(world.renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 	SDL_SetRenderScale(world.renderer, 2.0f, 2.0f);
 	SDL_RenderDebugTextFormat(world.renderer, 10, 10, "Collectibles Needed: %" SDL_PRIu32 "", world.level.collectiblesNeeded); 
+	/*SDL_RenderDebugTextFormat(world.renderer, 10, 30, "Player Position: X: %f %f", position.x, position.y); */
 	SDL_SetRenderScale(world.renderer, 1.0f, 1.0f);
 
 	// Display To Window
@@ -373,7 +376,7 @@ void cleanUp() {
 	cleanLevel();
 }
 
-void initalizeLevel1Objects() {
+void initalizeLevel3Objects() {
 	// Create world, set up level information
 	world.level.levelWidth = WIDTH * 3;
 	world.level.levelHeight = HEIGHT * 2;
@@ -382,8 +385,9 @@ void initalizeLevel1Objects() {
 	world.level.cameraBottomOffset = (float)HEIGHT / 2;
 	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
 	world.level.levelStatus = 0;
-	world.level.collectiblesNeeded = 2;
-	world.numberOfObjects = 20;
+	world.level.collectiblesNeeded = 17;
+	world.numberOfObjects = 38;
+	world.level.starttime = SDL_GetTicks();
 
 	// Allocate space for our object array
 	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
@@ -392,6 +396,7 @@ void initalizeLevel1Objects() {
 	}
 
 	// Initalize objects
+
 	objects[0] = (Object){.p = (p){100, 100 + HEIGHT, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
 	objects[1] = (Object){.p = (p){0,HEIGHT - 20 + HEIGHT, world.level.levelWidth, 20}, .color = (Color){0, 255, 0, 255}, .type = STATIC}; // Ground
 	objects[2] = (Object){.p = (p){200,300 + HEIGHT,200,20}, .color = (Color){0, 255, 255, 255}, .type = STATIC}; // Platform 1
@@ -401,23 +406,46 @@ void initalizeLevel1Objects() {
 	objects[6] = (Object){.p = (p){175,190 + HEIGHT,150,20}, .color = (Color){125, 255, 30, 255}, .type = STATIC}; // p5
 	objects[7] = (Object){.p = (p){world.level.levelWidth - 20,0,20,world.level.levelHeight}, .color = (Color){20, 255, 100, 255}, .type = STATIC}; // p6
 	objects[8] = (Object){.p = (p){0,0,20,world.level.levelHeight}, .color = (Color){20, 255, 100, 255}, .type = STATIC}; // p7
-	objects[9] = (Object){.p = (p){WIDTH + 200,400 + HEIGHT,200,50}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p8
-	objects[10] = (Object){.p = (p){2 * WIDTH + 200,450 + HEIGHT,100,10}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p9
-	objects[11] = (Object){.p = (p){2 * WIDTH + 400,350 + HEIGHT,40,40}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p10
-	objects[12] = (Object){.p = (p){WIDTH + 250,300 + HEIGHT,50,50}, .color = (Color){255, 0, 255, 255}, .type = DYNAMIC}; // Box 1
-	objects[13] = (Object){.p = (p){WIDTH + 250,250 + HEIGHT,50,50}, .color = (Color){255, 40, 255, 255}, .type = DYNAMIC}; // Box 2
-	objects[14] = (Object){.p = (p){WIDTH + 250,200 + HEIGHT,50,50}, .color = (Color){255, 0, 255, 255}, .type = DYNAMIC}; // Box3
-	objects[15] = (Object){.p = (p){WIDTH * 2,0,10,2 * HEIGHT - 100}, .color = (Color){255, 50, 50, 255}, .type = STATIC}; // Wall Left
-	objects[16] = (Object){.p = (p){WIDTH * 2 + 100,0,10,2 * HEIGHT - 100}, .color = (Color){50, 120, 255, 255}, .type = STATIC}; // Wall Right
-	objects[17] = (Object){.p = (p){300, HEIGHT * 2 - 50, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // collectible 1
-	objects[18] = (Object){.p = (p){350, HEIGHT * 2 - 50, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
-	objects[19] = (Object){.p = (p){WIDTH + 300, HEIGHT + 100, 200, 10}, .color = (Color){255, 255, 255, 255}, .type = KINEMATIC}; // Colletile 2
+	objects[9] = (Object){.p = (p){2 * WIDTH + 200,450 + HEIGHT,100,10}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p9
+	objects[10] = (Object){.p = (p){2 * WIDTH + 400,350 + HEIGHT,40,40}, .color = (Color){40, 80, 90, 255}, .type = STATIC}; // p10
+	objects[11] = (Object){.p = (p){WIDTH * 2,0,10,2 * HEIGHT - 120}, .color = (Color){255, 50, 50, 255}, .type = STATIC}; // Wall Left
+	objects[12] = (Object){.p = (p){WIDTH * 2 + 100,0,10,2 * HEIGHT - 120}, .color = (Color){50, 120, 255, 255}, .type = STATIC}; // Wall Right
+	objects[13] = (Object){.p = (p){300, HEIGHT * 2 - 100, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // collectible 1
+	objects[14] = (Object){.p = (p){400, HEIGHT * 2 - 100, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	/*objects[19] = (Object){.p = (p){WIDTH + 300, HEIGHT + 100, 200, 10}, .color = (Color){255, 255, 255, 255}, .type = KINEMATIC}; // Colletile 2*/
 
-	objects[19].kinematic.time = 5;
-	objects[19].kinematic.startPos.x = WIDTH + 300;
-	objects[19].kinematic.startPos.y = HEIGHT * 2 - 75;
-	objects[19].kinematic.endPos.x = WIDTH + 400;
-	objects[19].kinematic.endPos.y = HEIGHT * 2 - 150;
+	objects[15] = (Object){.p = (p){275, 225 + HEIGHT, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[16] = (Object){.p = (p){75, 325 + HEIGHT, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[17] = (Object){.p = (p){225, HEIGHT + 125, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[18] = (Object){.p = (p){500, 25 + HEIGHT, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[19] = (Object){.p = (p){400,HEIGHT,50,50}, .color = (Color){255, 20, 255, 255}, .type = DYNAMIC}; // inital box
+	objects[20] = (Object){.p = (p){401,HEIGHT - 50,50,50}, .color = (Color){255, 20, 255, 255}, .type = DYNAMIC}; // inital box
+	objects[21] = (Object){.p = (p){550, HEIGHT + 100, 250, 10}, .color = (Color){255, 255, 255, 255}, .type = KINEMATIC}; // moving platform
+	objects[22] = (Object){.p = (p){WIDTH + 200, HEIGHT + 100, 20, HEIGHT - 20}, .color = (Color){0, 255, 0, 255}, .type = STATIC}; // inner wall
+	objects[23] = (Object){.p = (p){WIDTH + 400, HEIGHT + 100, 20, HEIGHT - 20}, .color = (Color){0, 255, 0, 255}, .type = STATIC}; // inner wall
+	objects[24] = (Object){.p = (p){WIDTH + 275, HEIGHT * 2 - 75, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+
+	objects[25] = (Object){.p = (p){700, 2 * HEIGHT - 120, 10, 100}, .color = (Color){50, 20, 255, 255}, .type = STATIC}; // inner wall
+	objects[26] = (Object){.p = (p){800, 2 * HEIGHT - 120, 10, 100}, .color = (Color){50, 20, 255, 255}, .type = STATIC}; // inner wall
+	objects[27] = (Object){.p = (p){650, 2 * HEIGHT - 140, 220, 20}, .color = (Color){60, 180, 176, 255}, .type = DYNAMIC}; // inner wall
+	objects[28] = (Object){.p = (p){725, 2 * HEIGHT - 75, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+
+	objects[29] = (Object){.p = (p){1120, HEIGHT * 2 - 75, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[30] = (Object){.p = (p){1120, HEIGHT * 2 - 130, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	
+	objects[31] = (Object){.p = (p){2020, 710, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[32] = (Object){.p = (p){1650, 920, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[33] = (Object){.p = (p){1750, 920, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[34] = (Object){.p = (p){2230, 890, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[35] = (Object){.p = (p){2400, 790, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[36] = (Object){.p = (p){2140, 700, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+	objects[37] = (Object){.p = (p){2930, 680, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // inner wall
+
+	objects[21].kinematic.time = 10;
+	objects[21].kinematic.startPos.x = 750;
+	objects[21].kinematic.startPos.y = HEIGHT + 100; 
+	objects[21].kinematic.endPos.x = WIDTH + 350;
+	objects[21].kinematic.endPos.y = HEIGHT + 100; 
 	
 	// Initalize player
 	player.canJump = false;
@@ -433,41 +461,6 @@ void initalizeLevel1Objects() {
 
 void initalizeLevel2Objects() {
 	// Create world, set up level information
-	world.level.levelWidth = WIDTH;
-	world.level.levelHeight = HEIGHT;
- 	world.level.cameraLeftOffset = (float)WIDTH / 2;
-	world.level.cameraRightOffset = world.level.levelWidth - world.level.cameraLeftOffset;
-	world.level.cameraBottomOffset = (float)HEIGHT / 2;
-	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
-	world.level.levelStatus = 0;
-	world.level.collectiblesNeeded = 4;
-	world.numberOfObjects = 8;
-
-	// Allocate space for our object array
-	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
-	if (objects == NULL) {
-		puts("Error! Failed to intialized object array!");
-	}
-
-	// Initalize objects
-	objects[0] = (Object){.p = (p){100, 100, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
-	objects[1] = (Object){.p = (p){0, HEIGHT - 20, WIDTH, 20}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Ground
-	objects[2] = (Object){.p = (p){0, 0, 20, HEIGHT}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Left Wall
-	objects[3] = (Object){.p = (p){WIDTH - 20, 0, 20, HEIGHT}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Right Wall
-	objects[4] = (Object){.p = (p){200, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
-	objects[5] = (Object){.p = (p){300, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
-	objects[6] = (Object){.p = (p){400, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
-	objects[7] = (Object){.p = (p){500, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
-	
-	// Initalize player
-	player.canJump = false;
-
-	// Set it so everything is visible
-	for (int i = 0; i < world.numberOfObjects; i++) objects[i].draw = true;
-}
-
-void initalizeLevel3Objects() {
-	// Create world, set up level information
 	world.level.levelWidth = WIDTH * 2;
 	world.level.levelHeight = HEIGHT;
  	world.level.cameraLeftOffset = (float)WIDTH / 2;
@@ -475,8 +468,9 @@ void initalizeLevel3Objects() {
 	world.level.cameraBottomOffset = (float)HEIGHT / 2;
 	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
 	world.level.levelStatus = 0;
-	world.level.collectiblesNeeded = 2;
-	world.numberOfObjects = 4;
+	world.level.collectiblesNeeded = 9;
+	world.level.starttime = SDL_GetTicks();
+	world.numberOfObjects = 24;
 
 	// Allocate space for our object array
 	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
@@ -486,12 +480,111 @@ void initalizeLevel3Objects() {
 
 	// Initalize objects
 	objects[0] = (Object){.p = (p){100, 100, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
-	objects[1] = (Object){.p = (p){0, HEIGHT - 20, WIDTH * 2, 20}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Ground
-	objects[2] = (Object){.p = (p){0, 0, 20, HEIGHT}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Left Wall
-	objects[3] = (Object){.p = (p){WIDTH * 2 - 20, 0, 20, HEIGHT}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Right Wall
+	objects[1] = (Object){.p = (p){0, HEIGHT - 20, WIDTH * 2, 20}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Ground
+	objects[2] = (Object){.p = (p){0, 0, 20, HEIGHT}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Left Wall
+	objects[3] = (Object){.p = (p){WIDTH * 2 - 20, 0, 20, HEIGHT}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Right Wall
+
+	objects[4] = (Object){.p = (p){200, 420, 100, 20}, .color = (Color){0, 255, 255, 0}, .type = STATIC}; // Right Wall
+	objects[5] = (Object){.p = (p){20, 150, 50, 10}, .color = (Color){255, 255, 255, 0}, .type = STATIC}; // Right Wall
+	objects[6] = (Object){.p = (p){500, 300, 100, 20}, .color = (Color){0, 255, 0, 0}, .type = STATIC}; // Right Wall
+	objects[7] = (Object){.p = (p){750, 300, 50, 10}, .color = (Color){80, 50, 175, 255}, .type = STATIC}; // Right Wall
+	objects[8] = (Object){.p = (p){1000, 200, 20, 10}, .color = (Color){255, 50, 100, 0}, .type = STATIC}; // Right Wall, 
+	objects[9] = (Object){.p = (p){1200, 300, 20, 280}, .color = (Color){255, 180, 20, 0}, .type = STATIC}; // Right Wall, 
+	objects[10] = (Object){.p = (p){1200, 0, 20, 50}, .color = (Color){255, 180, 20, 0}, .type = STATIC}; // Right Wall, 
+	objects[11] = (Object){.p = (p){1200, 0, 20, 100}, .color = (Color){255, 255, 255, 0}, .type = KINEMATIC}; // Right Wall, 
+
+	objects[12] = (Object){.p = (p){1400, 400, 100, 10}, .color = (Color){255, 0, 0, 255}, .type = STATIC}; // Right Wall, 
+	objects[13] = (Object){.p = (p){1400, 200, 50, 10}, .color = (Color){0, 255, 0, 255}, .type = STATIC}; // Right Wall, 
+	objects[14] = (Object){.p = (p){1700, 100, 100, 20}, .color = (Color){0, 0, 255, 255}, .type = STATIC}; // Right Wall, 
+
+	objects[15] = (Object){.p = (p){230, 360, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[16] = (Object){.p = (p){530, 240, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[17] = (Object){.p = (p){25, 90, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[18] = (Object){.p = (p){765, 240, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[19] = (Object){.p = (p){980, 140, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[20] = (Object){.p = (p){1425, 340, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[21] = (Object){.p = (p){1400, 140, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[22] = (Object){.p = (p){1730, 40, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+	objects[23] = (Object){.p = (p){1915, 40, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall, 
+
+	objects[11].kinematic.time = 5;
+	objects[11].kinematic.startPos.x = 1200;
+	objects[11].kinematic.startPos.y = 0; 
+	objects[11].kinematic.endPos.x = 1200;
+	objects[11].kinematic.endPos.y = 300;
+	
+
+	/*objects[4] = (Object){.p = (p){200, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2*/
+	/*objects[5] = (Object){.p = (p){300, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2*/
+	/*objects[6] = (Object){.p = (p){400, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2*/
+	/*objects[7] = (Object){.p = (p){500, HEIGHT - 200, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2*/
 	
 	// Initalize player
 	player.canJump = false;
+	player.maxVelocityX = 10.0f;
+	player.jumpBuffer = 0;
+	player.bufferFrames = 10;
+	player.xForce = 2.0f;
+	player.yForce = 3.0f;
+
+	// Set it so everything is visible
+	for (int i = 0; i < world.numberOfObjects; i++) objects[i].draw = true;
+}
+
+void initalizeLevel1Objects() {
+	// Create world, set up level information
+	world.level.levelWidth = WIDTH;
+	world.level.levelHeight = HEIGHT;
+ 	world.level.cameraLeftOffset = (float)WIDTH / 2;
+	world.level.cameraRightOffset = world.level.levelWidth - world.level.cameraLeftOffset;
+	world.level.cameraBottomOffset = (float)HEIGHT / 2;
+	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
+	world.level.levelStatus = 0;
+	world.level.collectiblesNeeded = 8;
+	world.level.starttime = SDL_GetTicks();
+	world.numberOfObjects = 17;
+
+	// Allocate space for our object array
+	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
+	if (objects == NULL) {
+		puts("Error! Failed to intialized object array!");
+	}
+
+	// Initalize objects
+	objects[0] = (Object){.p = (p){100, 100, 50, 50}, .color = (Color){255, 0, 0, 255}, .type = DYNAMIC}; // Player
+	objects[1] = (Object){.p = (p){0, HEIGHT - 20, WIDTH, 20}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Ground
+	objects[2] = (Object){.p = (p){0, 0, 20, HEIGHT}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Left Wall
+	objects[3] = (Object){.p = (p){WIDTH - 20, 0, 20, HEIGHT}, .color = (Color){175, 50, 80, 255}, .type = STATIC}; // Right Wall
+	
+	objects[4] = (Object){.p = (p){700, 400, 200, 10}, .color = (Color){255, 255, 255, 255}, .type = KINEMATIC}; // Right Wall
+
+	objects[5] = (Object){.p = (p){300, 400, 100, 20}, .color = (Color){50, 255, 50, 255}, .type = STATIC}; // Right Wall
+	objects[6] = (Object){.p = (p){300, 300, 100, 20}, .color = (Color){100, 80, 50, 255}, .type = STATIC}; // Right Wall
+	objects[7] = (Object){.p = (p){300, 200, 100, 20}, .color = (Color){124, 200, 176, 255}, .type = STATIC}; // Right Wall
+	objects[8] = (Object){.p = (p){300, 100, 100, 20}, .color = (Color){50, 20, 255, 255}, .type = STATIC}; // Right Wall
+
+	objects[9] = (Object){.p = (p){325, 340, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[10] = (Object){.p = (p){325, 240, 50, 20}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[11] = (Object){.p = (p){325, 140, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[12] = (Object){.p = (p){325, 40, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[13] = (Object){.p = (p){20, 40, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[14] = (Object){.p = (p){550, 30, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[15] = (Object){.p = (p){800, 425, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+	objects[16] = (Object){.p = (p){920, 40, 50, 50}, .color = (Color){255, 255, 0, 255}, .type = COLLECTIBLE}; // Right Wall
+
+	objects[4].kinematic.time = 10;
+	objects[4].kinematic.startPos.x = 700;
+	objects[4].kinematic.startPos.y = 400; 
+	objects[4].kinematic.endPos.x = 500; 
+	objects[4].kinematic.endPos.y = 100; 
+	
+	// Initalize player
+	player.canJump = false;
+	player.maxVelocityX = 10.0f;
+	player.jumpBuffer = 0;
+	player.bufferFrames = 10;
+	player.xForce = 2.0f;
+	player.yForce = 3.0f;
 
 	// Set it so everything is visible
 	for (int i = 0; i < world.numberOfObjects; i++) objects[i].draw = true;
