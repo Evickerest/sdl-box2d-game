@@ -4,6 +4,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <box2d/collision.h>
 #include <box2d/id.h>
@@ -116,7 +117,7 @@ void initBox2D() {
 
 		// If the object is static, add a ground and 2 wall sensors to detect
 		// what side of the object we have hit
-		if (obj->type == STATIC) {
+		if (obj->type == STATIC || obj->type == KINEMATIC) {
 			b2ShapeDef ground = b2DefaultShapeDef();
 			b2ShapeDef lwall = b2DefaultShapeDef();
 			b2ShapeDef rwall = b2DefaultShapeDef();
@@ -196,6 +197,7 @@ void clearCollectible(b2ShapeId shapeId) {
 }
 
 b2Vec2 getKinematicVelocity(Object* obj) {
+	// Calculate velocity for kinematic platforms
 	float phase = fmod(SDL_GetTicks() / 1000.0, obj->kinematic.time);
 	float period = obj->kinematic.time / 2.0;
 
@@ -303,10 +305,8 @@ void render(Uint64 startTime) {
 		// Determine if we should draw the object
 		if (!obj->draw) continue;
 
-		b2Vec2 position;
-
 		// Get the Box2D object's position as SDL, add offsets to it
-		position = box2DToSDL(b2Body_GetPosition(obj->bodyId), obj); 
+		b2Vec2 position = box2DToSDL(b2Body_GetPosition(obj->bodyId), obj); 
 
 		// Add to our objects position the world offsets
 		obj->rect.x = position.x + world.xoffset;
@@ -319,8 +319,14 @@ void render(Uint64 startTime) {
 			renderCircle(world.renderer, obj);
 		}
 	}
+	
+	// Render text of how many more collectibles we needed
+	SDL_SetRenderDrawColor(world.renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+	SDL_SetRenderScale(world.renderer, 2.0f, 2.0f);
+	SDL_RenderDebugTextFormat(world.renderer, 10, 10, "Collectibles Needed: %" SDL_PRIu32 "", world.level.collectiblesNeeded); 
+	SDL_SetRenderScale(world.renderer, 1.0f, 1.0f);
 
-	// Display Screen
+	// Display To Window
 	SDL_RenderPresent(world.renderer);
 
 	// Wait for frame based on how long we have calculated for
@@ -409,9 +415,9 @@ void initalizeLevel1Objects() {
 
 	objects[19].kinematic.time = 5;
 	objects[19].kinematic.startPos.x = WIDTH + 300;
-	objects[19].kinematic.startPos.y = HEIGHT * 2 - 100;
+	objects[19].kinematic.startPos.y = HEIGHT * 2 - 75;
 	objects[19].kinematic.endPos.x = WIDTH + 400;
-	objects[19].kinematic.endPos.y = HEIGHT * 2 - 200;
+	objects[19].kinematic.endPos.y = HEIGHT * 2 - 150;
 	
 	// Initalize player
 	player.canJump = false;
