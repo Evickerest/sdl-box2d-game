@@ -10,6 +10,7 @@
 #include <box2d/math_functions.h>
 #include <box2d/types.h>
 #include <box2d/box2d.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,6 +70,7 @@ void initBox2D() {
 
 		// If dealing with a dynamic object, tell box2D we need physics!!!
 		if (obj->type == DYNAMIC) bodyDef.type = b2_dynamicBody;
+		if (obj->type == KINEMATIC) bodyDef.type = b2_kinematicBody;
 
 		// Create Body
 		obj->bodyId = b2CreateBody(world.worldId, &bodyDef);
@@ -87,6 +89,8 @@ void initBox2D() {
 		b2ShapeDef shapeDef = b2DefaultShapeDef();
 		shapeDef.density = 1.0f;
 		shapeDef.friction = 0.5f;
+
+		if (obj->type == KINEMATIC) shapeDef.friction = 1.0f;
 
 		// Add shape to polygon depending on object type
 		if (obj->type != COLLECTIBLE) {
@@ -191,6 +195,24 @@ void clearCollectible(b2ShapeId shapeId) {
 	}
 }
 
+b2Vec2 getKinematicVelocity(Object* obj) {
+	float phase = fmod(SDL_GetTicks() / 1000.0, obj->kinematic.time);
+	float period = obj->kinematic.time / 2.0;
+
+	float xint = pixelToMeter(obj->kinematic.endPos.x - obj->kinematic.startPos.x);
+	float yint = pixelToMeter(obj->kinematic.endPos.y - obj->kinematic.startPos.y);
+	int sign;
+
+	if (phase <= period) {
+		sign = 1;
+	} else {
+		sign = -1;
+	}
+
+	return (b2Vec2){-xint / period * sign, yint / period * sign};
+}
+
+
 void handlePhysics() {
 	const b2BodyId playerId = objects[0].bodyId;
 
@@ -240,6 +262,16 @@ void handlePhysics() {
 	}
 	}
 
+	// Calculate next position for our kinmatic objects
+	for (int i = 0; i < world.numberOfObjects; i++) {
+		Object* obj = &objects[i];
+
+		if (obj->type != KINEMATIC) continue;
+
+		b2Body_SetLinearVelocity(obj->bodyId, getKinematicVelocity(obj));
+
+	}
+
 	// Step physics simulation
 	b2World_Step(world.worldId, 1.0f / 60.0f, 8);
 }
@@ -271,8 +303,10 @@ void render(Uint64 startTime) {
 		// Determine if we should draw the object
 		if (!obj->draw) continue;
 
+		b2Vec2 position;
+
 		// Get the Box2D object's position as SDL, add offsets to it
-		b2Vec2 position = box2DToSDL(b2Body_GetPosition(obj->bodyId), obj); 
+		position = box2DToSDL(b2Body_GetPosition(obj->bodyId), obj); 
 
 		// Add to our objects position the world offsets
 		obj->rect.x = position.x + world.xoffset;
@@ -343,7 +377,7 @@ void initalizeLevel1Objects() {
 	world.level.cameraTopOffset = world.level.levelHeight - world.level.cameraBottomOffset;
 	world.level.levelStatus = 0;
 	world.level.collectiblesNeeded = 2;
-	world.numberOfObjects = 19;
+	world.numberOfObjects = 20;
 
 	// Allocate space for our object array
 	objects = (Object*)malloc(sizeof(Object) * world.numberOfObjects);
@@ -371,6 +405,13 @@ void initalizeLevel1Objects() {
 	objects[16] = (Object){.p = (p){WIDTH * 2 + 100,0,10,2 * HEIGHT - 100}, .color = (Color){50, 120, 255, 255}, .type = STATIC}; // Wall Right
 	objects[17] = (Object){.p = (p){300, HEIGHT * 2 - 50, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // collectible 1
 	objects[18] = (Object){.p = (p){350, HEIGHT * 2 - 50, 50, 50}, .color = (Color){255, 255, 0, 0}, .type = COLLECTIBLE}; // Colletile 2
+	objects[19] = (Object){.p = (p){WIDTH + 300, HEIGHT + 100, 200, 10}, .color = (Color){255, 255, 255, 255}, .type = KINEMATIC}; // Colletile 2
+
+	objects[19].kinematic.time = 5;
+	objects[19].kinematic.startPos.x = WIDTH + 300;
+	objects[19].kinematic.startPos.y = HEIGHT * 2 - 100;
+	objects[19].kinematic.endPos.x = WIDTH + 400;
+	objects[19].kinematic.endPos.y = HEIGHT * 2 - 200;
 	
 	// Initalize player
 	player.canJump = false;

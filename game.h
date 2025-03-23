@@ -44,7 +44,8 @@ const static float PIXELS_PER_METER = 50.0f;
 typedef enum ObjectType {
 	STATIC,
 	DYNAMIC,
-	COLLECTIBLE
+	COLLECTIBLE,
+	KINEMATIC
 } ObjectType;
 
 // Defines information relating to a Game level
@@ -88,6 +89,14 @@ typedef struct Position {
 	float h;
 } p;
 
+// Defines kinematc information 
+typedef struct Kinematic {
+	b2Vec2 pos;
+	b2Vec2 startPos;
+	b2Vec2 endPos;
+	float time;
+} Kinematic;
+
 // Defines some generic rectangle object in the world, 
 // Keeps information for Box2D and SDL
 typedef struct Object {
@@ -98,8 +107,10 @@ typedef struct Object {
 	ObjectType type;
 	b2Polygon polygon;
 	Color color;
+	Kinematic kinematic;
 	bool draw;
 } Object;
+
 
 // Defines player information and velocity constraints
 typedef struct Player {
