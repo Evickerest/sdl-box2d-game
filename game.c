@@ -68,6 +68,7 @@ void initBox2D() {
 		// SDL position and Box2D positions are different, so we convert between our pixel positioning to
 		// Box2D positioning here
 		bodyDef.position = SDLPositionToBox2D(obj);
+		bodyDef.fixedRotation = true;
 
 		// If dealing with a dynamic object, tell box2D we need physics!!!
 		if (obj->type == DYNAMIC) bodyDef.type = b2_dynamicBody;
